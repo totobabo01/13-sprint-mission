@@ -4,27 +4,73 @@ import com.sprint.mission.discodeit.entity.Channel;
 import com.sprint.mission.discodeit.entity.ChannelType;
 import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.User;
+
+import com.sprint.mission.discodeit.repository.UserRepository;
+import com.sprint.mission.discodeit.repository.ChannelRepository;
+import com.sprint.mission.discodeit.repository.MessageRepository;
+
+import com.sprint.mission.discodeit.repository.jcf.JCFUserRepository;
+import com.sprint.mission.discodeit.repository.jcf.JCFChannelRepository;
+import com.sprint.mission.discodeit.repository.jcf.JCFMessageRepository;
+
+import com.sprint.mission.discodeit.repository.file.FileUserRepository;
+import com.sprint.mission.discodeit.repository.file.FileChannelRepository;
+import com.sprint.mission.discodeit.repository.file.FileMessageRepository;
+
+import com.sprint.mission.discodeit.service.UserService;
 import com.sprint.mission.discodeit.service.ChannelService;
 import com.sprint.mission.discodeit.service.MessageService;
-import com.sprint.mission.discodeit.service.UserService;
-import com.sprint.mission.discodeit.service.jcf.JCFChannelService;
-import com.sprint.mission.discodeit.service.jcf.JCFMessageService;
-import com.sprint.mission.discodeit.service.jcf.JCFUserService;
 
+import com.sprint.mission.discodeit.service.basic.BasicUserService;
+import com.sprint.mission.discodeit.service.basic.BasicChannelService;
+import com.sprint.mission.discodeit.service.basic.BasicMessageService;
+
+import java.nio.file.Path;
 import java.util.List;
 
 public class JavaApplication {
     public static void main(String[] args) {
-        UserService us = new JCFUserService();
-        ChannelService cs = new JCFChannelService();
-        MessageService ms = new JCFMessageService(us, cs);
+
+        // ================================
+        // JCF Repository 테스트용
+        // ================================
+        // UserRepository userRepository = new JCFUserRepository();
+        // ChannelRepository channelRepository = new JCFChannelRepository();
+        // MessageRepository messageRepository = new JCFMessageRepository();
+
+
+        // ================================
+        // File Repository 테스트용
+        // JCF 테스트 후 위 Repository 3줄을 주석 처리하고
+        // 아래 코드 주석을 풀어서 테스트하면 됨
+        // ================================
+        UserRepository userRepository =
+                new FileUserRepository(Path.of("data", "basic-users.ser"));
+
+        ChannelRepository channelRepository =
+                new FileChannelRepository(Path.of("data", "basic-channels.ser"));
+
+        MessageRepository messageRepository =
+                new FileMessageRepository(Path.of("data", "basic-messages.ser"));
+
+
+        // ================================
+        // BasicService에 Repository 주입
+        // ================================
+        UserService us = new BasicUserService(userRepository);
+        ChannelService cs = new BasicChannelService(channelRepository);
+        MessageService ms = new BasicMessageService(
+                messageRepository,
+                userRepository,
+                channelRepository
+        );
 
         // 사용자 입력
-        User user1 = us.create("jang" ,"jang@email.com", "1234");
-        User user2 = us.create("song" ,"song@email.com", "1234");
-        User user3 = us.create("kim" ,"kim@email.com", "1234");
-        User user4 = us.create("lee" ,"lee@email.com", "1234");
-        User user5 = us.create("moon" ,"moon@email.com", "1234");
+        User user1 = us.create("jang", "jang@email.com", "1234");
+        User user2 = us.create("song", "song@email.com", "1234");
+        User user3 = us.create("kim", "kim@email.com", "1234");
+        User user4 = us.create("lee", "lee@email.com", "1234");
+        User user5 = us.create("moon", "moon@email.com", "1234");
 
         // 사용자 생성
         System.out.println("=== 사용자 생성 정보 ===");
@@ -65,7 +111,9 @@ public class JavaApplication {
         // 사용자 전체 조회
         List<User> allUsers = us.readAll();
         System.out.println("=== 사용자 전체 조회 정보 ===");
-        for(int i = 0; i < allUsers.size(); i++) {
+        System.out.println("현재 저장된 사용자 수: " + allUsers.size());
+
+        for (int i = 0; i < allUsers.size(); i++) {
             System.out.println("아이디: " + allUsers.get(i).getId());
             System.out.println("사용자 이름: " + allUsers.get(i).getUsername());
             System.out.println("사용자 이메일: " + allUsers.get(i).getEmail());
@@ -85,12 +133,12 @@ public class JavaApplication {
         us.delete(user4.getId());
         System.out.println("=== 사용자 삭제 조회 정보 ===");
 
-       try {
-           us.read(user4.getId());
-           System.out.println("삭제 실패");
-       } catch (IllegalArgumentException e) {
-           System.out.println("삭제 완료");
-       }
+        try {
+            us.read(user4.getId());
+            System.out.println("삭제 실패");
+        } catch (IllegalArgumentException e) {
+            System.out.println("삭제 완료");
+        }
 
         System.out.println();
 
@@ -98,7 +146,10 @@ public class JavaApplication {
         System.out.println("=== 삭제 후 사용자 전체 조회 정보 ===");
 
         List<User> allUsers2 = us.readAll();
-        for(int i = 0; i < allUsers2.size(); i++) {
+
+        System.out.println("현재 저장된 사용자 수: " + allUsers2.size());
+
+        for (int i = 0; i < allUsers2.size(); i++) {
             System.out.println("아이디: " + allUsers2.get(i).getId());
             System.out.println("사용자 이름: " + allUsers2.get(i).getUsername());
             System.out.println("사용자 이메일: " + allUsers2.get(i).getEmail());
@@ -114,7 +165,7 @@ public class JavaApplication {
         Channel channel4 = cs.create(ChannelType.PRIVATE, "운영진회의", "운영진만 접근 가능한 회의 채널");
         Channel channel5 = cs.create(ChannelType.PRIVATE, "프로젝트팀", "프로젝트 팀원 전용 협업 채널");
 
-        //  채널 생성
+        // 채널 생성
         System.out.println("=== 채널 생성 정보 ===");
         System.out.println("채널 아이디: " + channel1.getId());
         System.out.println("채널 종류: " + channel1.getType());
@@ -159,7 +210,9 @@ public class JavaApplication {
         // 채널 전체 조회
         List<Channel> allChannels = cs.readAll();
         System.out.println("=== 채널 전체 조회 정보 ===");
-        for(int i = 0; i < allChannels.size(); i++) {
+        System.out.println("현재 저장된 채널 수: " + allChannels.size());
+
+        for (int i = 0; i < allChannels.size(); i++) {
             System.out.println("채널 아이디: " + allChannels.get(i).getId());
             System.out.println("채널 종류: " + allChannels.get(i).getType());
             System.out.println("채널 이름: " + allChannels.get(i).getName());
@@ -169,7 +222,13 @@ public class JavaApplication {
         System.out.println();
 
         // 채널 수정 조회
-        Channel updateChannel = cs.update(channel2.getId(), ChannelType.PRIVATE, "비밀게시판", "사용자들이 은밀하게 대화하는 채널");
+        Channel updateChannel = cs.update(
+                channel2.getId(),
+                ChannelType.PRIVATE,
+                "비밀게시판",
+                "사용자들이 은밀하게 대화하는 채널"
+        );
+
         System.out.println("=== 채널 수정 조회 정보 ===");
         System.out.println("채널 아이디: " + updateChannel.getId());
         System.out.println("채널 종류: " + updateChannel.getType());
@@ -194,7 +253,10 @@ public class JavaApplication {
         System.out.println("=== 삭제 후 채널 전체 조회 정보 ===");
 
         List<Channel> allChannels2 = cs.readAll();
-        for(int i = 0; i < allChannels2.size(); i++) {
+
+        System.out.println("현재 저장된 채널 수: " + allChannels2.size());
+
+        for (int i = 0; i < allChannels2.size(); i++) {
             System.out.println("채널 아이디: " + allChannels2.get(i).getId());
             System.out.println("채널 종류: " + allChannels2.get(i).getType());
             System.out.println("채널 이름: " + allChannels2.get(i).getName());
@@ -259,6 +321,8 @@ public class JavaApplication {
         List<Message> allMessages = ms.readAll();
 
         System.out.println("=== 메시지 전체 조회 정보 ===");
+        System.out.println("현재 저장된 메시지 수: " + allMessages.size());
+
         for (int i = 0; i < allMessages.size(); i++) {
             Message message = allMessages.get(i);
 
@@ -302,6 +366,8 @@ public class JavaApplication {
 
         List<Message> allMessages2 = ms.readAll();
 
+        System.out.println("현재 저장된 메시지 수: " + allMessages2.size());
+
         for (int i = 0; i < allMessages2.size(); i++) {
             Message message = allMessages2.get(i);
 
@@ -314,15 +380,5 @@ public class JavaApplication {
             System.out.println("내용: " + message.getContent());
             System.out.println("===================================================");
         }
-
-
-
-
-
-
-
-
-
-
     }
 }
