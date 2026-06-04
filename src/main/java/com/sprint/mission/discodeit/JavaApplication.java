@@ -4,381 +4,375 @@ import com.sprint.mission.discodeit.entity.Channel;
 import com.sprint.mission.discodeit.entity.ChannelType;
 import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.User;
-
-import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.ChannelRepository;
 import com.sprint.mission.discodeit.repository.MessageRepository;
-
-import com.sprint.mission.discodeit.repository.jcf.JCFUserRepository;
-import com.sprint.mission.discodeit.repository.jcf.JCFChannelRepository;
-import com.sprint.mission.discodeit.repository.jcf.JCFMessageRepository;
-
-import com.sprint.mission.discodeit.repository.file.FileUserRepository;
+import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.file.FileChannelRepository;
 import com.sprint.mission.discodeit.repository.file.FileMessageRepository;
-
-import com.sprint.mission.discodeit.service.UserService;
+import com.sprint.mission.discodeit.repository.file.FileUserRepository;
+import com.sprint.mission.discodeit.repository.jcf.JCFChannelRepository;
+import com.sprint.mission.discodeit.repository.jcf.JCFMessageRepository;
+import com.sprint.mission.discodeit.repository.jcf.JCFUserRepository;
 import com.sprint.mission.discodeit.service.ChannelService;
 import com.sprint.mission.discodeit.service.MessageService;
-
-import com.sprint.mission.discodeit.service.basic.BasicUserService;
+import com.sprint.mission.discodeit.service.UserService;
 import com.sprint.mission.discodeit.service.basic.BasicChannelService;
 import com.sprint.mission.discodeit.service.basic.BasicMessageService;
+import com.sprint.mission.discodeit.service.basic.BasicUserService;
 
 import java.nio.file.Path;
 import java.util.List;
 
 public class JavaApplication {
+
+    // 테스트 저장 방식 선택
+    // JCF 테스트: StorageType.JCF
+    // File 테스트: StorageType.FILE
+    private static final StorageType STORAGE_TYPE = StorageType.FILE;
+
+    enum StorageType {
+        JCF,
+        FILE
+    }
+
+    static class ServiceBundle {
+        UserService userService;
+        ChannelService channelService;
+        MessageService messageService;
+
+        ServiceBundle(UserService userService, ChannelService channelService, MessageService messageService) {
+            this.userService = userService;
+            this.channelService = channelService;
+            this.messageService = messageService;
+        }
+    }
+
+    static class TestData {
+        User user1;
+        User user2;
+        User user3;
+        User user4;
+        User user5;
+
+        Channel channel1;
+        Channel channel2;
+        Channel channel3;
+        Channel channel4;
+        Channel channel5;
+
+        Message message1;
+        Message message2;
+        Message message3;
+        Message message4;
+        Message message5;
+    }
+
     public static void main(String[] args) {
+        ServiceBundle services = createServices(STORAGE_TYPE);
+        TestData testData = new TestData();
 
-        // ================================
-        // JCF Repository 테스트용
-        // ================================
-        // UserRepository userRepository = new JCFUserRepository();
-        // ChannelRepository channelRepository = new JCFChannelRepository();
-        // MessageRepository messageRepository = new JCFMessageRepository();
+        System.out.println("===========================================");
+        System.out.println("현재 테스트 저장 방식: " + STORAGE_TYPE);
+        System.out.println("===========================================");
+        System.out.println();
 
+        testUserCrud(services.userService, testData);
+        testChannelCrud(services.channelService, testData);
+        testMessageCrud(
+                services.userService,
+                services.channelService,
+                services.messageService,
+                testData
+        );
+    }
 
-        // ================================
-        // File Repository 테스트용
-        // JCF 테스트 후 위 Repository 3줄을 주석 처리하고
-        // 아래 코드 주석을 풀어서 테스트하면 됨
-        // ================================
-        UserRepository userRepository =
-                new FileUserRepository(Path.of("data", "basic-users.ser"));
+    private static ServiceBundle createServices(StorageType storageType) {
+        UserRepository userRepository;
+        ChannelRepository channelRepository;
+        MessageRepository messageRepository;
 
-        ChannelRepository channelRepository =
-                new FileChannelRepository(Path.of("data", "basic-channels.ser"));
+        if (storageType == StorageType.JCF) {
+            userRepository = new JCFUserRepository();
+            channelRepository = new JCFChannelRepository();
+            messageRepository = new JCFMessageRepository();
+        } else {
+            userRepository = new FileUserRepository(Path.of("data", "basic-users.ser"));
+            channelRepository = new FileChannelRepository(Path.of("data", "basic-channels.ser"));
+            messageRepository = new FileMessageRepository(Path.of("data", "basic-messages.ser"));
+        }
 
-        MessageRepository messageRepository =
-                new FileMessageRepository(Path.of("data", "basic-messages.ser"));
-
-
-        // ================================
-        // BasicService에 Repository 주입
-        // ================================
-        UserService us = new BasicUserService(userRepository);
-        ChannelService cs = new BasicChannelService(channelRepository);
-        MessageService ms = new BasicMessageService(
+        UserService userService = new BasicUserService(userRepository);
+        ChannelService channelService = new BasicChannelService(channelRepository);
+        MessageService messageService = new BasicMessageService(
                 messageRepository,
                 userRepository,
                 channelRepository
         );
 
-        // 사용자 입력
-        User user1 = us.create("jang", "jang@email.com", "1234");
-        User user2 = us.create("song", "song@email.com", "1234");
-        User user3 = us.create("kim", "kim@email.com", "1234");
-        User user4 = us.create("lee", "lee@email.com", "1234");
-        User user5 = us.create("moon", "moon@email.com", "1234");
+        return new ServiceBundle(userService, channelService, messageService);
+    }
+
+    private static void testUserCrud(UserService us, TestData testData) {
+        System.out.println("========== 사용자 CRUD 테스트 ==========");
 
         // 사용자 생성
+        testData.user1 = us.create("jang", "jang@email.com", "1234");
+        testData.user2 = us.create("song", "song@email.com", "1234");
+        testData.user3 = us.create("kim", "kim@email.com", "1234");
+        testData.user4 = us.create("lee", "lee@email.com", "1234");
+        testData.user5 = us.create("moon", "moon@email.com", "1234");
+
         System.out.println("=== 사용자 생성 정보 ===");
-        System.out.println("아이디: " + user1.getId());
-        System.out.println("사용자 이름: " + user1.getUsername());
-        System.out.println("사용자 이메일: " + user1.getEmail());
-        System.out.println("===================================================");
-
-        System.out.println("아이디: " + user2.getId());
-        System.out.println("사용자 이름: " + user2.getUsername());
-        System.out.println("사용자 이메일: " + user2.getEmail());
-        System.out.println("===================================================");
-
-        System.out.println("아이디: " + user3.getId());
-        System.out.println("사용자 이름: " + user3.getUsername());
-        System.out.println("사용자 이메일: " + user3.getEmail());
-        System.out.println("===================================================");
-
-        System.out.println("아이디: " + user4.getId());
-        System.out.println("사용자 이름: " + user4.getUsername());
-        System.out.println("사용자 이메일: " + user4.getEmail());
-        System.out.println("===================================================");
-
-        System.out.println("아이디: " + user5.getId());
-        System.out.println("사용자 이름: " + user5.getUsername());
-        System.out.println("사용자 이메일: " + user5.getEmail());
-        System.out.println("===================================================");
-        System.out.println();
+        printUser(testData.user1);
+        printUser(testData.user2);
+        printUser(testData.user3);
+        printUser(testData.user4);
+        printUser(testData.user5);
 
         // 사용자 단건 조회
-        User readUser = us.read(user2.getId());
+        User readUser = us.read(testData.user2.getId());
         System.out.println("=== 사용자 단건 조회 정보 ===");
-        System.out.println("아이디: " + readUser.getId());
-        System.out.println("사용자 이름: " + readUser.getUsername());
-        System.out.println("사용자 이메일: " + readUser.getEmail());
-        System.out.println();
+        printUser(readUser);
 
         // 사용자 전체 조회
-        List<User> allUsers = us.readAll();
         System.out.println("=== 사용자 전체 조회 정보 ===");
-        System.out.println("현재 저장된 사용자 수: " + allUsers.size());
-
-        for (int i = 0; i < allUsers.size(); i++) {
-            System.out.println("아이디: " + allUsers.get(i).getId());
-            System.out.println("사용자 이름: " + allUsers.get(i).getUsername());
-            System.out.println("사용자 이메일: " + allUsers.get(i).getEmail());
-            System.out.println("===================================================");
-        }
-        System.out.println();
+        printAllUsers(us.readAll());
 
         // 사용자 수정
-        User updateUser = us.update(user2.getId(), "seol", "seol@email.com", "1234");
+        User updateUser = us.update(testData.user2.getId(), "seol", "seol@email.com", "1234");
         System.out.println("=== 사용자 수정 조회 정보 ===");
-        System.out.println("아이디: " + updateUser.getId());
-        System.out.println("사용자 이름: " + updateUser.getUsername());
-        System.out.println("사용자 이메일: " + updateUser.getEmail());
-        System.out.println();
+        printUser(updateUser);
 
         // 사용자 삭제
-        us.delete(user4.getId());
+        us.delete(testData.user4.getId());
         System.out.println("=== 사용자 삭제 조회 정보 ===");
 
-        try {
-            us.read(user4.getId());
-            System.out.println("삭제 실패");
-        } catch (IllegalArgumentException e) {
-            System.out.println("삭제 완료");
-        }
+        // 피드백 반영: 삭제 검증 try-catch를 별도 메서드로 분리
+        // 예외가 발생하면 무조건 삭제 완료라고만 출력하지 않고,
+        // 어떤 예외 메시지가 발생했는지 함께 출력해서 테스트 의도를 명확히 함
+        verifyDeletedUser(us, testData.user4);
 
-        System.out.println();
-
-        // 삭제 후 다시 정보 조회
+        // 삭제 후 전체 조회
         System.out.println("=== 삭제 후 사용자 전체 조회 정보 ===");
+        printAllUsers(us.readAll());
+    }
 
-        List<User> allUsers2 = us.readAll();
-
-        System.out.println("현재 저장된 사용자 수: " + allUsers2.size());
-
-        for (int i = 0; i < allUsers2.size(); i++) {
-            System.out.println("아이디: " + allUsers2.get(i).getId());
-            System.out.println("사용자 이름: " + allUsers2.get(i).getUsername());
-            System.out.println("사용자 이메일: " + allUsers2.get(i).getEmail());
-            System.out.println("===================================================");
-        }
-
-        System.out.println();
-
-        // 채널 입력
-        Channel channel1 = cs.create(ChannelType.PUBLIC, "공지사항", "서비스 공지와 업데이트 안내 채널");
-        Channel channel2 = cs.create(ChannelType.PUBLIC, "자유게시판", "사용자들이 자유롭게 대화하는 채널");
-        Channel channel3 = cs.create(ChannelType.PUBLIC, "질문답변", "궁금한 내용을 질문하고 답변하는 채널");
-        Channel channel4 = cs.create(ChannelType.PRIVATE, "운영진회의", "운영진만 접근 가능한 회의 채널");
-        Channel channel5 = cs.create(ChannelType.PRIVATE, "프로젝트팀", "프로젝트 팀원 전용 협업 채널");
+    private static void testChannelCrud(ChannelService cs, TestData testData) {
+        System.out.println("========== 채널 CRUD 테스트 ==========");
 
         // 채널 생성
+        testData.channel1 = cs.create(ChannelType.PUBLIC, "공지사항", "서비스 공지와 업데이트 안내 채널");
+        testData.channel2 = cs.create(ChannelType.PUBLIC, "자유게시판", "사용자들이 자유롭게 대화하는 채널");
+        testData.channel3 = cs.create(ChannelType.PUBLIC, "질문답변", "궁금한 내용을 질문하고 답변하는 채널");
+        testData.channel4 = cs.create(ChannelType.PRIVATE, "운영진회의", "운영진만 접근 가능한 회의 채널");
+        testData.channel5 = cs.create(ChannelType.PRIVATE, "프로젝트팀", "프로젝트 팀원 전용 협업 채널");
+
         System.out.println("=== 채널 생성 정보 ===");
-        System.out.println("채널 아이디: " + channel1.getId());
-        System.out.println("채널 종류: " + channel1.getType());
-        System.out.println("채널 이름: " + channel1.getName());
-        System.out.println("채널 뜻: " + channel1.getDescription());
-        System.out.println("===================================================");
-
-        System.out.println("채널 아이디: " + channel2.getId());
-        System.out.println("채널 종류: " + channel2.getType());
-        System.out.println("채널 이름: " + channel2.getName());
-        System.out.println("채널 뜻: " + channel2.getDescription());
-        System.out.println("===================================================");
-
-        System.out.println("채널 아이디: " + channel3.getId());
-        System.out.println("채널 종류: " + channel3.getType());
-        System.out.println("채널 이름: " + channel3.getName());
-        System.out.println("채널 뜻: " + channel3.getDescription());
-        System.out.println("===================================================");
-
-        System.out.println("채널 아이디: " + channel4.getId());
-        System.out.println("채널 종류: " + channel4.getType());
-        System.out.println("채널 이름: " + channel4.getName());
-        System.out.println("채널 뜻: " + channel4.getDescription());
-        System.out.println("===================================================");
-
-        System.out.println("채널 아이디: " + channel5.getId());
-        System.out.println("채널 종류: " + channel5.getType());
-        System.out.println("채널 이름: " + channel5.getName());
-        System.out.println("채널 뜻: " + channel5.getDescription());
-        System.out.println("===================================================");
-        System.out.println();
+        printChannel(testData.channel1);
+        printChannel(testData.channel2);
+        printChannel(testData.channel3);
+        printChannel(testData.channel4);
+        printChannel(testData.channel5);
 
         // 채널 단건 조회
-        Channel readChannel = cs.read(channel2.getId());
+        Channel readChannel = cs.read(testData.channel2.getId());
         System.out.println("=== 채널 단건 조회 정보 ===");
-        System.out.println("채널 아이디: " + readChannel.getId());
-        System.out.println("채널 종류: " + readChannel.getType());
-        System.out.println("채널 이름: " + readChannel.getName());
-        System.out.println("채널 뜻: " + readChannel.getDescription());
-        System.out.println();
+        printChannel(readChannel);
 
         // 채널 전체 조회
-        List<Channel> allChannels = cs.readAll();
         System.out.println("=== 채널 전체 조회 정보 ===");
-        System.out.println("현재 저장된 채널 수: " + allChannels.size());
+        printAllChannels(cs.readAll());
 
-        for (int i = 0; i < allChannels.size(); i++) {
-            System.out.println("채널 아이디: " + allChannels.get(i).getId());
-            System.out.println("채널 종류: " + allChannels.get(i).getType());
-            System.out.println("채널 이름: " + allChannels.get(i).getName());
-            System.out.println("채널 뜻: " + allChannels.get(i).getDescription());
-            System.out.println("===================================================");
-        }
-        System.out.println();
-
-        // 채널 수정 조회
+        // 채널 수정
         Channel updateChannel = cs.update(
-                channel2.getId(),
+                testData.channel2.getId(),
                 ChannelType.PRIVATE,
                 "비밀게시판",
                 "사용자들이 은밀하게 대화하는 채널"
         );
 
         System.out.println("=== 채널 수정 조회 정보 ===");
-        System.out.println("채널 아이디: " + updateChannel.getId());
-        System.out.println("채널 종류: " + updateChannel.getType());
-        System.out.println("채널 이름: " + updateChannel.getName());
-        System.out.println("채널 뜻: " + updateChannel.getDescription());
-        System.out.println();
+        printChannel(updateChannel);
 
         // 채널 삭제
-        cs.delete(channel3.getId());
+        cs.delete(testData.channel3.getId());
         System.out.println("=== 채널 삭제 조회 정보 ===");
 
-        try {
-            cs.read(channel3.getId());
-            System.out.println("삭제 실패");
-        } catch (IllegalArgumentException e) {
-            System.out.println("삭제 완료");
-        }
+        // 피드백 반영: 삭제 검증 try-catch를 별도 메서드로 분리
+        verifyDeletedChannel(cs, testData.channel3);
 
-        System.out.println();
-
-        // 삭제 후 다시 정보 조회
+        // 삭제 후 전체 조회
         System.out.println("=== 삭제 후 채널 전체 조회 정보 ===");
+        printAllChannels(cs.readAll());
+    }
 
-        List<Channel> allChannels2 = cs.readAll();
-
-        System.out.println("현재 저장된 채널 수: " + allChannels2.size());
-
-        for (int i = 0; i < allChannels2.size(); i++) {
-            System.out.println("채널 아이디: " + allChannels2.get(i).getId());
-            System.out.println("채널 종류: " + allChannels2.get(i).getType());
-            System.out.println("채널 이름: " + allChannels2.get(i).getName());
-            System.out.println("채널 뜻: " + allChannels2.get(i).getDescription());
-            System.out.println("===================================================");
-        }
-
-        System.out.println();
-
-        // 메시지 입력
-        Message message1 = ms.create("안녕하세요! 처음 가입했습니다.", user1.getId(), channel2.getId());
-        Message message2 = ms.create("오늘 업데이트 내용 확인했습니다.", user2.getId(), channel1.getId());
-        Message message3 = ms.create("Java 인터페이스 구현이 조금 헷갈립니다.", user3.getId(), channel2.getId());
-        Message message4 = ms.create("프로젝트 일정 공유드립니다.", user3.getId(), channel5.getId());
-        Message message5 = ms.create("운영진 회의는 몇 시에 시작하나요?", user5.getId(), channel4.getId());
+    private static void testMessageCrud(
+            UserService us,
+            ChannelService cs,
+            MessageService ms,
+            TestData testData
+    ) {
+        System.out.println("========== 메시지 CRUD 테스트 ==========");
 
         // 메시지 생성
+        testData.message1 = ms.create("안녕하세요! 처음 가입했습니다.", testData.user1.getId(), testData.channel2.getId());
+        testData.message2 = ms.create("오늘 업데이트 내용 확인했습니다.", testData.user2.getId(), testData.channel1.getId());
+        testData.message3 = ms.create("Java 인터페이스 구현이 조금 헷갈립니다.", testData.user3.getId(), testData.channel2.getId());
+        testData.message4 = ms.create("프로젝트 일정 공유드립니다.", testData.user3.getId(), testData.channel5.getId());
+        testData.message5 = ms.create("운영진 회의는 몇 시에 시작하나요?", testData.user5.getId(), testData.channel4.getId());
+
         System.out.println("=== 메시지 생성 정보 ===");
-
-        System.out.println("메시지 아이디: " + message1.getId());
-        System.out.println("작성자: " + us.read(message1.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(message1.getChannelId()).getName());
-        System.out.println("내용: " + message1.getContent());
-        System.out.println("===================================================");
-
-        System.out.println("메시지 아이디: " + message2.getId());
-        System.out.println("작성자: " + us.read(message2.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(message2.getChannelId()).getName());
-        System.out.println("내용: " + message2.getContent());
-        System.out.println("===================================================");
-
-        System.out.println("메시지 아이디: " + message3.getId());
-        System.out.println("작성자: " + us.read(message3.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(message3.getChannelId()).getName());
-        System.out.println("내용: " + message3.getContent());
-        System.out.println("===================================================");
-
-        System.out.println("메시지 아이디: " + message4.getId());
-        System.out.println("작성자: " + us.read(message4.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(message4.getChannelId()).getName());
-        System.out.println("내용: " + message4.getContent());
-        System.out.println("===================================================");
-
-        System.out.println("메시지 아이디: " + message5.getId());
-        System.out.println("작성자: " + us.read(message5.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(message5.getChannelId()).getName());
-        System.out.println("내용: " + message5.getContent());
-        System.out.println("===================================================");
-        System.out.println();
+        printMessage(testData.message1, us, cs);
+        printMessage(testData.message2, us, cs);
+        printMessage(testData.message3, us, cs);
+        printMessage(testData.message4, us, cs);
+        printMessage(testData.message5, us, cs);
 
         // 메시지 단건 조회
-        Message readMessage = ms.read(message2.getId());
-
+        Message readMessage = ms.read(testData.message2.getId());
         System.out.println("=== 메시지 단건 조회 정보 ===");
-        System.out.println("메시지 아이디: " + readMessage.getId());
-        System.out.println("작성자: " + us.read(readMessage.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(readMessage.getChannelId()).getName());
-        System.out.println("내용: " + readMessage.getContent());
-        System.out.println();
+        printMessage(readMessage, us, cs);
 
         // 메시지 전체 조회
-        List<Message> allMessages = ms.readAll();
-
         System.out.println("=== 메시지 전체 조회 정보 ===");
-        System.out.println("현재 저장된 메시지 수: " + allMessages.size());
-
-        for (int i = 0; i < allMessages.size(); i++) {
-            Message message = allMessages.get(i);
-
-            User author = us.read(message.getAuthorId());
-            Channel channel = cs.read(message.getChannelId());
-
-            System.out.println("메시지 아이디: " + message.getId());
-            System.out.println("작성자: " + author.getUsername());
-            System.out.println("채널: " + channel.getName());
-            System.out.println("내용: " + message.getContent());
-            System.out.println("===================================================");
-        }
-        System.out.println();
+        printAllMessages(ms.readAll(), us, cs);
 
         // 메시지 수정
-        Message updateMessage = ms.update(message2.getId(), "오늘 업데이트 내용을 확인하지 못했습니다.");
-
+        Message updateMessage = ms.update(testData.message2.getId(), "오늘 업데이트 내용을 확인하지 못했습니다.");
         System.out.println("=== 메시지 수정 조회 정보 ===");
-        System.out.println("메시지 아이디: " + updateMessage.getId());
-        System.out.println("작성자: " + us.read(updateMessage.getAuthorId()).getUsername());
-        System.out.println("채널: " + cs.read(updateMessage.getChannelId()).getName());
-        System.out.println("내용: " + updateMessage.getContent());
-        System.out.println();
+        printMessage(updateMessage, us, cs);
 
         // 메시지 삭제
-        ms.delete(message4.getId());
-
+        ms.delete(testData.message4.getId());
         System.out.println("=== 메시지 삭제 조회 정보 ===");
 
-        try {
-            ms.read(message4.getId());
-            System.out.println("삭제 실패");
-        } catch (IllegalArgumentException e) {
-            System.out.println("삭제 완료");
+        // 피드백 반영: 삭제 검증 try-catch를 별도 메서드로 분리
+        verifyDeletedMessage(ms, testData.message4);
+
+        // 삭제 후 전체 조회
+        System.out.println("=== 삭제 후 메시지 전체 조회 정보 ===");
+        printAllMessages(ms.readAll(), us, cs);
+    }
+
+    private static void printUser(User user) {
+        System.out.println("아이디: " + user.getId());
+        System.out.println("사용자 이름: " + user.getUsername());
+        System.out.println("사용자 이메일: " + user.getEmail());
+        System.out.println("===================================================");
+    }
+
+    private static void printAllUsers(List<User> users) {
+        System.out.println("현재 저장된 사용자 수: " + users.size());
+
+        for (User user : users) {
+            printUser(user);
         }
 
         System.out.println();
+    }
 
-        // 삭제 후 다시 정보 조회
-        System.out.println("=== 삭제 후 메시지 전체 조회 정보 ===");
+    private static void printChannel(Channel channel) {
+        System.out.println("채널 아이디: " + channel.getId());
+        System.out.println("채널 종류: " + channel.getType());
+        System.out.println("채널 이름: " + channel.getName());
+        System.out.println("채널 설명: " + channel.getDescription());
+        System.out.println("===================================================");
+    }
 
-        List<Message> allMessages2 = ms.readAll();
+    private static void printAllChannels(List<Channel> channels) {
+        System.out.println("현재 저장된 채널 수: " + channels.size());
 
-        System.out.println("현재 저장된 메시지 수: " + allMessages2.size());
-
-        for (int i = 0; i < allMessages2.size(); i++) {
-            Message message = allMessages2.get(i);
-
-            User author = us.read(message.getAuthorId());
-            Channel channel = cs.read(message.getChannelId());
-
-            System.out.println("메시지 아이디: " + message.getId());
-            System.out.println("작성자: " + author.getUsername());
-            System.out.println("채널: " + channel.getName());
-            System.out.println("내용: " + message.getContent());
-            System.out.println("===================================================");
+        for (Channel channel : channels) {
+            printChannel(channel);
         }
+
+        System.out.println();
+    }
+
+    private static void printMessage(Message message, UserService us, ChannelService cs) {
+        // 피드백 반영: 메시지 출력 시 작성자/채널 조회 로직을 보조 메서드로 분리
+        // 기존에는 printMessage 안에서 us.read(...), cs.read(...)를 직접 반복 호출했지만,
+        // 이제 findAuthorName(), findChannelName()으로 분리해서 출력 코드의 중복과 복잡도를 줄임
+        String authorName = findAuthorName(message, us);
+        String channelName = findChannelName(message, cs);
+
+        System.out.println("메시지 아이디: " + message.getId());
+        System.out.println("작성자: " + authorName);
+        System.out.println("채널: " + channelName);
+        System.out.println("내용: " + message.getContent());
+        System.out.println("===================================================");
+    }
+
+    private static void printAllMessages(List<Message> messages, UserService us, ChannelService cs) {
+        System.out.println("현재 저장된 메시지 수: " + messages.size());
+
+        for (Message message : messages) {
+            printMessage(message, us, cs);
+        }
+
+        System.out.println();
+    }
+
+    // 피드백 반영: 메시지의 작성자 이름 조회를 별도 메서드로 분리
+    private static String findAuthorName(Message message, UserService us) {
+        User author = us.read(message.getAuthorId());
+        return author.getUsername();
+    }
+
+    // 피드백 반영: 메시지의 채널 이름 조회를 별도 메서드로 분리
+    private static String findChannelName(Message message, ChannelService cs) {
+        Channel channel = cs.read(message.getChannelId());
+        return channel.getName();
+    }
+
+    // 피드백 반영: 사용자 삭제 검증 로직 분리
+    private static void verifyDeletedUser(UserService us, User deletedUser) {
+        try {
+            us.read(deletedUser.getId());
+            System.out.println("삭제 실패: 삭제 후에도 사용자가 조회됩니다.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("삭제 완료: 삭제 후 사용자 조회 시 예상 예외가 발생했습니다.");
+            System.out.println("예외 메시지: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
+            System.out.println("예외 종류: " + e.getClass().getSimpleName());
+            System.out.println("예외 메시지: " + e.getMessage());
+        }
+
+        System.out.println();
+    }
+
+    // 피드백 반영: 채널 삭제 검증 로직 분리
+    private static void verifyDeletedChannel(ChannelService cs, Channel deletedChannel) {
+        try {
+            cs.read(deletedChannel.getId());
+            System.out.println("삭제 실패: 삭제 후에도 채널이 조회됩니다.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("삭제 완료: 삭제 후 채널 조회 시 예상 예외가 발생했습니다.");
+            System.out.println("예외 메시지: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
+            System.out.println("예외 종류: " + e.getClass().getSimpleName());
+            System.out.println("예외 메시지: " + e.getMessage());
+        }
+
+        System.out.println();
+    }
+
+    // 피드백 반영: 메시지 삭제 검증 로직 분리
+    private static void verifyDeletedMessage(MessageService ms, Message deletedMessage) {
+        try {
+            ms.read(deletedMessage.getId());
+            System.out.println("삭제 실패: 삭제 후에도 메시지가 조회됩니다.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("삭제 완료: 삭제 후 메시지 조회 시 예상 예외가 발생했습니다.");
+            System.out.println("예외 메시지: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
+            System.out.println("예외 종류: " + e.getClass().getSimpleName());
+            System.out.println("예외 메시지: " + e.getMessage());
+        }
+
+        System.out.println();
     }
 }

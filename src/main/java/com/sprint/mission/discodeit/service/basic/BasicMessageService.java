@@ -27,6 +27,9 @@ public class BasicMessageService implements MessageService {
 
     @Override
     public Message create(String content, UUID authorId, UUID channelId) {
+        // 수정한 부분: 메시지 생성 전에 내용이 비어 있거나 공백인지 검증
+        validateContent(content);
+
         if (!userRepository.existsById(authorId)) {
             throw new IllegalArgumentException("메시지를 작성할 사용자를 찾을 수 없습니다.");
         }
@@ -59,6 +62,9 @@ public class BasicMessageService implements MessageService {
 
     @Override
     public Message update(UUID id, String content) {
+        // 수정한 부분: 메시지 수정 전에도 내용이 비어 있거나 공백인지 검증
+        validateContent(content);
+
         Message message = messageRepository.findById(id);
 
         if (message == null) {
@@ -78,5 +84,13 @@ public class BasicMessageService implements MessageService {
         }
 
         messageRepository.deleteById(id);
+    }
+
+    // 수정한 부분: 메시지 내용 검증 로직을 별도 메서드로 분리
+    // null, 빈 문자열, 공백만 있는 메시지를 방지
+    private void validateContent(String content) {
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("메시지 내용은 비어 있을 수 없습니다.");
+        }
     }
 }
