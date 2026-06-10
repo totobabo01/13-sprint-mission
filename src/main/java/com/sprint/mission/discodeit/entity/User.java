@@ -3,18 +3,22 @@ package com.sprint.mission.discodeit.entity;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
 public class User implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private UUID id;
-    private Long createdAt;
-    private Long updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
 
     private String username;
     private String email;
     private String password;
+    private UUID profileId;
 
 
     public User(String username, String email, String password) {
@@ -22,12 +26,14 @@ public class User implements Serializable {
         validate(username, email, password);
 
         this.id = UUID.randomUUID();
-        this.createdAt = System.currentTimeMillis();
+        this.createdAt = Instant.now();
         this.updatedAt = null;
 
         this.username = username;
         this.email = email;
         this.password = password;
+        this.profileId = null;
+
     }
 
     public void update(String username, String email, String password) {
@@ -37,7 +43,12 @@ public class User implements Serializable {
         this.username = username;
         this.email = email;
         this.password = password;
-        this.updatedAt = System.currentTimeMillis();
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateProfileId(UUID profileId) {
+        this.profileId = profileId;
+        this.updatedAt = Instant.now();
     }
 
     // 수정한 부분: 생성자와 update()에서 공통으로 사용할 입력값 검증 메서드 추가
