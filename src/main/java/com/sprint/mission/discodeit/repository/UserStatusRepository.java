@@ -15,4 +15,8 @@ public interface UserStatusRepository {
     void deleteById(UUID id);
 
     boolean existsById(UUID id);
+
+    UserStatus findByUserId(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

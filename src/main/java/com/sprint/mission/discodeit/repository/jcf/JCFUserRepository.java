@@ -7,14 +7,18 @@ import java.util.*;
 
 public class JCFUserRepository implements UserRepository {
 
-    // 데이터 필드
+    // User 데이터를 메모리에 저장하는 Map
+    // key: User의 id
+    // value: User 객체
     private final Map<UUID, User> data;
 
-    // 생성자
+    // 생성자: User 데이터를 저장할 HashMap 초기화
     public JCFUserRepository() {
         data = new HashMap<>();
     }
 
+    // User 저장
+    // 새 User라면 추가되고, 같은 id의 User가 있으면 덮어쓰기됨
     @Override
     public User save(User user) {
         UUID id = user.getId();
@@ -22,12 +26,15 @@ public class JCFUserRepository implements UserRepository {
         return user;
     }
 
+    // id로 User 단건 조회
+    // 해당 id가 없으면 null 반환
     @Override
     public User findById(UUID id) {
         User user = data.get(id);
         return user;
     }
 
+    // 저장된 모든 User 조회
     @Override
     public List<User> findAll() {
         List<User> allUsers = new ArrayList<>();
@@ -35,13 +42,41 @@ public class JCFUserRepository implements UserRepository {
         return allUsers;
     }
 
+    // id로 User 삭제
     @Override
     public void deleteById(UUID id) {
         data.remove(id);
     }
 
+    // id에 해당하는 User가 존재하는지 확인
     @Override
     public boolean existsById(UUID id) {
         return data.containsKey(id);
+    }
+
+    // username이 이미 사용 중인지 확인
+    // 모든 User를 순회하면서 같은 username이 있으면 true 반환
+    @Override
+    public boolean existsByUsername(String username) {
+        for (User user : data.values()) {
+            if (user.getUsername().equals(username)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // email이 이미 사용 중인지 확인
+    // 모든 User를 순회하면서 같은 email이 있으면 true 반환
+    @Override
+    public boolean existsByEmail(String email) {
+        for (User user : data.values()) {
+            if (user.getEmail().equals(email)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
