@@ -3,7 +3,11 @@ package com.sprint.mission.discodeit.repository.jcf;
 import com.sprint.mission.discodeit.entity.User;
 import com.sprint.mission.discodeit.repository.UserRepository;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class JCFUserRepository implements UserRepository {
 
@@ -14,7 +18,7 @@ public class JCFUserRepository implements UserRepository {
 
     // 생성자: User 데이터를 저장할 HashMap 초기화
     public JCFUserRepository() {
-        data = new HashMap<>();
+        this.data = new HashMap<>();
     }
 
     // User 저장
@@ -23,6 +27,7 @@ public class JCFUserRepository implements UserRepository {
     public User save(User user) {
         UUID id = user.getId();
         data.put(id, user);
+
         return user;
     }
 
@@ -30,16 +35,13 @@ public class JCFUserRepository implements UserRepository {
     // 해당 id가 없으면 null 반환
     @Override
     public User findById(UUID id) {
-        User user = data.get(id);
-        return user;
+        return data.get(id);
     }
 
     // 저장된 모든 User 조회
     @Override
     public List<User> findAll() {
-        List<User> allUsers = new ArrayList<>();
-        allUsers.addAll(data.values());
-        return allUsers;
+        return new ArrayList<>(data.values());
     }
 
     // id로 User 삭제
@@ -78,5 +80,20 @@ public class JCFUserRepository implements UserRepository {
         }
 
         return false;
+    }
+
+    // username으로 User 조회
+    // AuthService 로그인 기능에서 사용
+    // username이 일치하는 User가 있으면 해당 User 반환
+    // 없으면 null 반환
+    @Override
+    public User findByUsername(String username) {
+        for (User user : data.values()) {
+            if (user.getUsername().equals(username)) {
+                return user;
+            }
+        }
+
+        return null;
     }
 }

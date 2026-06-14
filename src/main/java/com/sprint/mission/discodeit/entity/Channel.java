@@ -45,10 +45,19 @@ public class Channel implements Serializable {
             throw new IllegalArgumentException("채널 종류는 비어 있을 수 없습니다.");
         }
 
+        // 수정한 부분:
+        // PRIVATE 채널은 name, description을 사용하지 않음
+        // 그래서 null이어도 허용하고 바로 검증 종료
+        if (type == ChannelType.PRIVATE) {
+            return;
+        }
+
+        // PUBLIC 채널은 name 필수
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("채널 이름은 비어 있을 수 없습니다.");
         }
 
+        // PUBLIC 채널은 description 필수
         if (description == null || description.isBlank()) {
             throw new IllegalArgumentException("채널 설명은 비어 있을 수 없습니다.");
         }

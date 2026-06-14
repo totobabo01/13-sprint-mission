@@ -16,9 +16,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// JCF 기반 MessageService 구현체
+// 주의: 현재 고도화된 구조에서는 BasicMessageService + JCFMessageRepository 사용을 권장함
+// 이 클래스는 기존 JCF 서비스 구조를 유지하면서 컴파일 에러를 없애기 위해 수정한 버전
 public class JCFMessageService implements MessageService {
 
     // 메시지 데이터를 메모리에 저장하는 Map
+    // key: 메시지 id
+    // value: Message 객체
     private final Map<UUID, Message> data;
 
     // 작성자 존재 여부 확인용 UserService
@@ -35,7 +40,7 @@ public class JCFMessageService implements MessageService {
     }
 
     // 메시지 생성
-    // 수정한 부분: content, authorId, channelId를 따로 받지 않고 MessageCreateRequest DTO를 받음
+    // MessageCreateRequest DTO를 받아 Message를 생성함
     @Override
     public MessageResponse create(MessageCreateRequest request) {
         if (request == null) {
@@ -44,10 +49,13 @@ public class JCFMessageService implements MessageService {
 
         validateContent(request.getContent());
 
-        // 작성자와 채널이 존재하는지 확인
-        // read()에서 없으면 예외가 발생하므로 검증 역할을 함
+        // 작성자가 실제 존재하는지 확인
+        // userService.read()에서 없으면 예외가 발생하므로 검증 역할을 함
         UserResponse author = userService.read(request.getAuthorId());
-        ChannelResponse channel = channelService.read(request.getChannelId());
+
+        // 채널이 실제 존재하는지 확인
+        // ChannelService는 read()가 아니라 find() 사용
+        ChannelResponse channel = channelService.find(request.getChannelId());
 
         if (author == null || channel == null) {
             throw new IllegalArgumentException("메시지를 생성할 작성자 또는 채널을 찾을 수 없습니다.");
@@ -59,13 +67,16 @@ public class JCFMessageService implements MessageService {
                 request.getChannelId()
         );
 
+        // 주의:
+        // 이 JCFMessageService는 기존 구조 유지용이라 첨부파일 BinaryContent 저장은 처리하지 않음
+        // 첨부파일까지 정상 처리하려면 BasicMessageService + BinaryContentRepository 구조를 사용해야 함
+
         data.put(message.getId(), message);
 
         return toResponse(message);
     }
 
     // 메시지 단건 조회
-    // 수정한 부분: Message 엔티티가 아니라 MessageResponse 반환
     @Override
     public MessageResponse read(UUID id) {
         Message message = data.get(id);
@@ -77,21 +88,26 @@ public class JCFMessageService implements MessageService {
         return toResponse(message);
     }
 
-    // 메시지 전체 조회
-    // 수정한 부분: List<Message>가 아니라 List<MessageResponse> 반환
+    // 수정한 부분:
+    // 기존 readAll() 제거
+    // MessageService 인터페이스 변경에 맞춰 특정 채널의 메시지만 조회하도록 수정
     @Override
-    public List<MessageResponse> readAll() {
-        List<MessageResponse> allMessages = new ArrayList<>();
+    public List<MessageResponse> findAllByChannelId(UUID channelId) {
+        // 채널이 실제 존재하는지 확인
+        channelService.find(channelId);
+
+        List<MessageResponse> messages = new ArrayList<>();
 
         for (Message message : data.values()) {
-            allMessages.add(toResponse(message));
+            if (message.getChannelId().equals(channelId)) {
+                messages.add(toResponse(message));
+            }
         }
 
-        return allMessages;
+        return messages;
     }
 
     // 메시지 수정
-    // 수정한 부분: id, content를 따로 받지 않고 MessageUpdateRequest DTO를 받음
     @Override
     public MessageResponse update(MessageUpdateRequest request) {
         if (request == null) {
@@ -103,7 +119,7 @@ public class JCFMessageService implements MessageService {
         Message message = data.get(request.getId());
 
         if (message == null) {
-            throw new IllegalArgumentException("수정된 메시지 정보를 조회할 수 없습니다.");
+            throw new IllegalArgumentException("수정할 메시지를 찾을 수 없습니다.");
         }
 
         message.update(request.getContent());
@@ -114,7 +130,9 @@ public class JCFMessageService implements MessageService {
     // 메시지 삭제
     @Override
     public void delete(UUID id) {
-        if (data.get(id) == null) {
+        Message message = data.get(id);
+
+        if (message == null) {
             throw new IllegalArgumentException("삭제할 메시지를 찾을 수 없습니다.");
         }
 

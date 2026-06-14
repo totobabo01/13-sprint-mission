@@ -15,12 +15,16 @@ import java.util.UUID;
 
 public class FileMessageRepository implements MessageRepository {
 
+    // 메시지 데이터를 저장할 파일 경로
     private final Path filePath;
 
+    // 생성자: 저장 파일 경로를 외부에서 주입받음
     public FileMessageRepository(Path filePath) {
         this.filePath = filePath;
     }
 
+    // 파일에서 메시지 데이터를 읽어오는 메서드
+    // 파일이 없으면 빈 HashMap 반환
     @SuppressWarnings("unchecked")
     private Map<UUID, Message> loadData() {
         if (!Files.exists(filePath)) {
@@ -34,9 +38,10 @@ public class FileMessageRepository implements MessageRepository {
         }
     }
 
+    // 메시지 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, Message> data) {
         try {
-            // 수정한 부분: filePath.getParent()가 null일 수 있으므로 별도 메서드로 안전하게 처리
+            // filePath.getParent()가 null일 수 있으므로 안전하게 처리
             createParentDirectoryIfNeeded();
 
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
@@ -47,7 +52,7 @@ public class FileMessageRepository implements MessageRepository {
         }
     }
 
-    // 수정한 부분: parent가 없는 상대 경로를 사용할 경우 NullPointerException을 막기 위한 방어 코드
+    // parent가 없는 상대 경로를 사용할 경우 NullPointerException을 막기 위한 방어 코드
     private void createParentDirectoryIfNeeded() {
         Path parent = filePath.getParent();
 
@@ -60,11 +65,10 @@ public class FileMessageRepository implements MessageRepository {
         }
     }
 
+    // 메시지 저장
+    // 새 메시지면 추가, 같은 id의 메시지가 있으면 덮어쓰기
     @Override
     public Message save(Message message) {
-        // 수정한 부분: File Repository는 호출할 때마다 전체 파일을 읽고 다시 저장하는 구조임을 명시
-        // 이번 과제 범위에서는 단순하고 이해하기 쉬운 방식이지만,
-        // 데이터가 많아지면 파일 전체를 매번 읽고 쓰기 때문에 비용이 커질 수 있음
         Map<UUID, Message> data = loadData();
 
         UUID id = message.getId();
@@ -74,27 +78,25 @@ public class FileMessageRepository implements MessageRepository {
         return message;
     }
 
+    // id로 메시지 단건 조회
     @Override
     public Message findById(UUID id) {
-        // 수정한 부분: 조회 시에도 전체 파일을 읽은 뒤 Map에서 id로 찾는 구조
         Map<UUID, Message> data = loadData();
+
         return data.get(id);
     }
 
+    // 전체 메시지 조회
     @Override
     public List<Message> findAll() {
-        // 수정한 부분: 전체 조회 역시 파일 전체를 읽어 List로 변환하는 구조
         Map<UUID, Message> data = loadData();
 
-        List<Message> allMessages = new ArrayList<>();
-        allMessages.addAll(data.values());
-
-        return allMessages;
+        return new ArrayList<>(data.values());
     }
 
+    // id로 메시지 삭제
     @Override
     public void deleteById(UUID id) {
-        // 수정한 부분: 삭제 시 전체 파일을 읽고, Map에서 삭제한 뒤 다시 전체 저장
         Map<UUID, Message> data = loadData();
 
         data.remove(id);
@@ -102,11 +104,39 @@ public class FileMessageRepository implements MessageRepository {
         saveData(data);
     }
 
+    // id에 해당하는 메시지가 존재하는지 확인
     @Override
     public boolean existsById(UUID id) {
-        // 수정한 부분: 존재 여부 확인도 파일 전체를 읽은 뒤 containsKey로 확인하는 구조
         Map<UUID, Message> data = loadData();
 
         return data.containsKey(id);
+    }
+
+    // 특정 Channel에 작성된 메시지 목록 조회
+    // ChannelResponse에서 가장 최근 메시지 시간을 구할 때 사용
+    @Override
+    public List<Message> findAllByChannelId(UUID channelId) {
+        Map<UUID, Message> data = loadData();
+
+        List<Message> result = new ArrayList<>();
+
+        for (Message message : data.values()) {
+            if (message.getChannelId().equals(channelId)) {
+                result.add(message);
+            }
+        }
+
+        return result;
+    }
+
+    // 특정 Channel에 작성된 모든 메시지 삭제
+    // Channel 삭제 시 관련 Message도 같이 삭제하기 위해 사용
+    @Override
+    public void deleteByChannelId(UUID channelId) {
+        Map<UUID, Message> data = loadData();
+
+        data.values().removeIf(message -> message.getChannelId().equals(channelId));
+
+        saveData(data);
     }
 }

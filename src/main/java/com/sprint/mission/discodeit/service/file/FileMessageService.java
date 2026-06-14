@@ -18,13 +18,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// 파일 기반 MessageService 구현체
+// 주의: 현재 고도화된 구조에서는 BasicMessageService + FileMessageRepository 사용을 권장함
+// 이 클래스는 기존 파일 서비스 구조를 유지하면서 컴파일 에러를 없애기 위해 수정한 버전
 public class FileMessageService implements MessageService {
 
+    // 메시지 데이터를 저장할 파일 경로
     private final Path filePath;
 
+    // 작성자 존재 여부를 확인하기 위한 UserService
     private final UserService userService;
+
+    // 채널 존재 여부를 확인하기 위한 ChannelService
     private final ChannelService channelService;
 
+    // 생성자
     public FileMessageService(Path filePath, UserService userService, ChannelService channelService) {
         this.filePath = filePath;
         this.userService = userService;
@@ -63,7 +71,7 @@ public class FileMessageService implements MessageService {
     }
 
     // 메시지 생성
-    // 수정한 부분: content, authorId, channelId를 따로 받지 않고 MessageCreateRequest DTO를 받음
+    // MessageCreateRequest DTO를 받아 Message를 생성함
     @Override
     public MessageResponse create(MessageCreateRequest request) {
         if (request == null) {
@@ -74,16 +82,22 @@ public class FileMessageService implements MessageService {
 
         Map<UUID, Message> data = loadData();
 
-        // 작성자와 채널이 실제 존재하는지 확인
-        // read()에서 없으면 예외가 발생하므로 검증 용도로 사용 가능
+        // 작성자가 실제 존재하는지 확인
         userService.read(request.getAuthorId());
-        channelService.read(request.getChannelId());
+
+        // 채널이 실제 존재하는지 확인
+        // ChannelService는 read()가 아니라 find() 사용
+        channelService.find(request.getChannelId());
 
         Message message = new Message(
                 request.getContent(),
                 request.getAuthorId(),
                 request.getChannelId()
         );
+
+        // 주의:
+        // 이 FileMessageService는 기존 구조 유지용이라 첨부파일 BinaryContent 저장은 처리하지 않음
+        // 첨부파일까지 정상 처리하려면 BasicMessageService + BinaryContentRepository 구조를 사용해야 함
 
         data.put(message.getId(), message);
         saveData(data);
@@ -92,7 +106,6 @@ public class FileMessageService implements MessageService {
     }
 
     // 메시지 단건 조회
-    // 수정한 부분: Message 엔티티가 아니라 MessageResponse 반환
     @Override
     public MessageResponse read(UUID id) {
         Map<UUID, Message> data = loadData();
@@ -106,23 +119,28 @@ public class FileMessageService implements MessageService {
         return toResponse(message);
     }
 
-    // 전체 메시지 조회
-    // 수정한 부분: List<Message>가 아니라 List<MessageResponse> 반환
+    // 수정한 부분:
+    // 기존 readAll() 제거
+    // MessageService 인터페이스 변경에 맞춰 특정 채널의 메시지만 조회하도록 수정
     @Override
-    public List<MessageResponse> readAll() {
+    public List<MessageResponse> findAllByChannelId(UUID channelId) {
+        // 채널이 실제 존재하는지 확인
+        channelService.find(channelId);
+
         Map<UUID, Message> data = loadData();
 
         List<MessageResponse> responses = new ArrayList<>();
 
         for (Message message : data.values()) {
-            responses.add(toResponse(message));
+            if (message.getChannelId().equals(channelId)) {
+                responses.add(toResponse(message));
+            }
         }
 
         return responses;
     }
 
     // 메시지 수정
-    // 수정한 부분: id, content를 따로 받지 않고 MessageUpdateRequest DTO를 받음
     @Override
     public MessageResponse update(MessageUpdateRequest request) {
         if (request == null) {

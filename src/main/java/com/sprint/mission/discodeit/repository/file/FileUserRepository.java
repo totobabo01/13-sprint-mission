@@ -41,8 +41,11 @@ public class FileUserRepository implements UserRepository {
     // 사용자 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, User> data) {
         try {
-            // data 폴더가 없으면 생성
-            Files.createDirectories(filePath.getParent());
+            // 부모 폴더가 있는 경우에만 폴더 생성
+            // 예: data/users.ser 처럼 경로에 폴더가 있으면 data 폴더 생성
+            if (filePath.getParent() != null) {
+                Files.createDirectories(filePath.getParent());
+            }
 
             // Map 전체를 직렬화해서 파일에 저장
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
@@ -70,6 +73,7 @@ public class FileUserRepository implements UserRepository {
     @Override
     public User findById(UUID id) {
         Map<UUID, User> data = loadData();
+
         return data.get(id);
     }
 
@@ -78,10 +82,7 @@ public class FileUserRepository implements UserRepository {
     public List<User> findAll() {
         Map<UUID, User> data = loadData();
 
-        List<User> allUsers = new ArrayList<>();
-        allUsers.addAll(data.values());
-
-        return allUsers;
+        return new ArrayList<>(data.values());
     }
 
     // id로 사용자 삭제
@@ -130,5 +131,20 @@ public class FileUserRepository implements UserRepository {
         }
 
         return false;
+    }
+
+    // username으로 사용자 조회
+    // AuthService에서 로그인할 때 사용
+    @Override
+    public User findByUsername(String username) {
+        Map<UUID, User> data = loadData();
+
+        for (User user : data.values()) {
+            if (user.getUsername().equals(username)) {
+                return user;
+            }
+        }
+
+        return null;
     }
 }

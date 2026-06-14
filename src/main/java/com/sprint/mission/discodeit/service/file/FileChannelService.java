@@ -3,7 +3,9 @@ package com.sprint.mission.discodeit.service.file;
 import com.sprint.mission.discodeit.dto.ChannelCreateRequest;
 import com.sprint.mission.discodeit.dto.ChannelResponse;
 import com.sprint.mission.discodeit.dto.ChannelUpdateRequest;
+import com.sprint.mission.discodeit.dto.PrivateChannelCreateRequest;
 import com.sprint.mission.discodeit.entity.Channel;
+import com.sprint.mission.discodeit.entity.ChannelType;
 import com.sprint.mission.discodeit.service.ChannelService;
 
 import java.io.ObjectInputStream;
@@ -11,15 +13,21 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// 파일 기반 ChannelService 구현체
+// 주의: 현재 고도화된 구조에서는 BasicChannelService + FileChannelRepository 사용을 권장함
+// 이 클래스는 컴파일 에러를 막기 위해 ChannelService 변경 사항에 맞춰 수정한 버전
 public class FileChannelService implements ChannelService {
 
+    // 채널 데이터를 저장할 파일 경로
     private final Path filePath;
 
+    // 생성자: 저장 파일 경로를 외부에서 주입받음
     public FileChannelService(Path filePath) {
         this.filePath = filePath;
     }
@@ -55,18 +63,22 @@ public class FileChannelService implements ChannelService {
         }
     }
 
-    // 채널 생성
-    // 수정한 부분: ChannelType, name, description을 따로 받지 않고 ChannelCreateRequest DTO를 받음
+    // PUBLIC 채널 생성
+    // 수정한 부분: 기존 create() 대신 createPublicChannel() 구현
     @Override
-    public ChannelResponse create(ChannelCreateRequest request) {
+    public ChannelResponse createPublicChannel(ChannelCreateRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("채널 생성 요청은 비어 있을 수 없습니다.");
+        }
+
+        if (request.getType() != ChannelType.PUBLIC) {
+            throw new IllegalArgumentException("PUBLIC 채널 생성 요청만 처리할 수 있습니다.");
         }
 
         Map<UUID, Channel> data = loadData();
 
         Channel channel = new Channel(
-                request.getType(),
+                ChannelType.PUBLIC,
                 request.getName(),
                 request.getDescription()
         );
@@ -77,10 +89,50 @@ public class FileChannelService implements ChannelService {
         return toResponse(channel);
     }
 
-    // 채널 단건 조회
-    // 수정한 부분: Channel 엔티티가 아니라 ChannelResponse 반환
+    // PRIVATE 채널 생성
+    // 수정한 부분: 새 ChannelService 인터페이스에 맞춰 추가
+    // 주의: 이 클래스는 ReadStatusRepository를 가지고 있지 않기 때문에
+    // 참여자별 ReadStatus 생성은 처리하지 못함
+    // 실제 고도화 기능은 BasicChannelService에서 처리하는 것이 맞음
     @Override
-    public ChannelResponse read(UUID id) {
+    public ChannelResponse createPrivateChannel(PrivateChannelCreateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("PRIVATE 채널 생성 요청은 비어 있을 수 없습니다.");
+        }
+
+        if (request.getParticipantUserIds() == null || request.getParticipantUserIds().isEmpty()) {
+            throw new IllegalArgumentException("PRIVATE 채널 참여자 목록은 비어 있을 수 없습니다.");
+        }
+
+        Map<UUID, Channel> data = loadData();
+
+        // PRIVATE 채널은 name, description을 생략하기 위해 null로 저장
+        // 만약 Channel 엔티티에서 null을 허용하지 않으면 Channel.java 수정이 필요함
+        Channel channel = new Channel(
+                ChannelType.PRIVATE,
+                null,
+                null
+        );
+
+        data.put(channel.getId(), channel);
+        saveData(data);
+
+        return new ChannelResponse(
+                channel.getId(),
+                channel.getCreatedAt(),
+                channel.getUpdatedAt(),
+                channel.getType(),
+                channel.getName(),
+                channel.getDescription(),
+                null,
+                request.getParticipantUserIds()
+        );
+    }
+
+    // 채널 단건 조회
+    // 수정한 부분: 기존 read() 대신 find() 구현
+    @Override
+    public ChannelResponse find(UUID id) {
         Map<UUID, Channel> data = loadData();
 
         Channel channel = data.get(id);
@@ -92,10 +144,17 @@ public class FileChannelService implements ChannelService {
         return toResponse(channel);
     }
 
-    // 전체 채널 조회
-    // 수정한 부분: List<Channel>이 아니라 List<ChannelResponse> 반환
+    // 특정 사용자가 볼 수 있는 채널 목록 조회
+    // 수정한 부분: 기존 readAll() 대신 findAllByUserId() 구현
+    // 주의: 이 클래스는 ReadStatus 정보를 모르기 때문에
+    // 정확한 PRIVATE 채널 필터링은 불가능함
+    // 그래서 여기서는 저장된 모든 채널을 반환함
     @Override
-    public List<ChannelResponse> readAll() {
+    public List<ChannelResponse> findAllByUserId(UUID userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("사용자 id는 null일 수 없습니다.");
+        }
+
         Map<UUID, Channel> data = loadData();
 
         List<ChannelResponse> responses = new ArrayList<>();
@@ -108,7 +167,7 @@ public class FileChannelService implements ChannelService {
     }
 
     // 채널 수정
-    // 수정한 부분: id, type, name, description을 따로 받지 않고 ChannelUpdateRequest DTO를 받음
+    // PUBLIC 채널만 수정 가능
     @Override
     public ChannelResponse update(ChannelUpdateRequest request) {
         if (request == null) {
@@ -123,8 +182,14 @@ public class FileChannelService implements ChannelService {
             throw new IllegalArgumentException("수정할 채널을 찾을 수 없습니다.");
         }
 
+        // PRIVATE 채널은 수정 불가
+        if (channel.getType() == ChannelType.PRIVATE) {
+            throw new IllegalArgumentException("PRIVATE 채널은 수정할 수 없습니다.");
+        }
+
+        // PUBLIC 채널은 PUBLIC 상태로 유지하면서 name, description만 수정
         channel.update(
-                request.getType(),
+                ChannelType.PUBLIC,
                 request.getName(),
                 request.getDescription()
         );
@@ -157,7 +222,15 @@ public class FileChannelService implements ChannelService {
                 channel.getUpdatedAt(),
                 channel.getType(),
                 channel.getName(),
-                channel.getDescription()
+                channel.getDescription(),
+
+                // FileChannelService는 MessageRepository를 가지고 있지 않아서
+                // 최근 메시지 시간을 계산할 수 없음
+                null,
+
+                // FileChannelService는 ReadStatusRepository를 가지고 있지 않아서
+                // PRIVATE 채널 참여자 목록을 정확히 계산할 수 없음
+                Collections.emptyList()
         );
     }
 }

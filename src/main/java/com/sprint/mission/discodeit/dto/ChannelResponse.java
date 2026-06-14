@@ -4,6 +4,7 @@ import com.sprint.mission.discodeit.entity.ChannelType;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 // 채널 응답 DTO
@@ -26,10 +27,20 @@ public class ChannelResponse {
     private ChannelType type;
 
     // 채널 이름
+    // PUBLIC 채널에서는 값이 있고, PRIVATE 채널에서는 null일 수 있음
     private String name;
 
     // 채널 설명
+    // PUBLIC 채널에서는 값이 있고, PRIVATE 채널에서는 null일 수 있음
     private String description;
+
+    // 해당 채널의 가장 최근 메시지 생성 시간
+    // 메시지가 없으면 null일 수 있음
+    private Instant lastMessageAt;
+
+    // PRIVATE 채널에 참여한 사용자 id 목록
+    // PUBLIC 채널에서는 null 또는 빈 리스트일 수 있음
+    private List<UUID> participantUserIds;
 
     // ChannelResponse 객체를 생성하는 생성자
     public ChannelResponse(
@@ -38,7 +49,9 @@ public class ChannelResponse {
             Instant updatedAt,
             ChannelType type,
             String name,
-            String description
+            String description,
+            Instant lastMessageAt,
+            List<UUID> participantUserIds
     ) {
         this.id = id;
         this.createdAt = createdAt;
@@ -46,5 +59,7 @@ public class ChannelResponse {
         this.type = type;
         this.name = name;
         this.description = description;
+        this.lastMessageAt = lastMessageAt;
+        this.participantUserIds = participantUserIds;
     }
 }

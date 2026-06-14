@@ -16,8 +16,12 @@ public class BinaryContent implements Serializable {
     private UUID id;
 
     // 공통 필드: 바이너리 콘텐츠가 생성된 시간
-    // BinaryContent는 수정 불가능한 도메인으로 보기 때문에 updatedAt은 정의하지 않음
     private Instant createdAt;
+
+    // 추가한 부분:
+    // 공통 응답 DTO 구조를 맞추기 위해 updatedAt 필드 추가
+    // BinaryContent는 수정 기능이 없으므로 기본값은 null
+    private Instant updatedAt;
 
     // 파일 이름
     private String fileName;
@@ -41,6 +45,10 @@ public class BinaryContent implements Serializable {
 
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
+
+        // 추가한 부분:
+        // 수정 기능이 없으므로 생성 시 updatedAt은 null
+        this.updatedAt = null;
 
         this.fileName = fileName;
         this.contentType = contentType;

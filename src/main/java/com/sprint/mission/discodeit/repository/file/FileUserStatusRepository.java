@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// 파일 기반 UserStatusRepository 구현체
+// UserStatus 데이터를 객체 직렬화를 사용해 파일에 저장함
 public class FileUserStatusRepository implements UserStatusRepository {
 
     // UserStatus 데이터를 저장할 파일 경로
@@ -41,8 +43,9 @@ public class FileUserStatusRepository implements UserStatusRepository {
     // UserStatus 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, UserStatus> data) {
         try {
-            // data 폴더가 없으면 생성
-            Files.createDirectories(filePath.getParent());
+            // 수정한 부분:
+            // filePath.getParent()가 null일 수 있으므로 null이 아닐 때만 폴더 생성
+            createParentDirectoryIfNeeded();
 
             // Map 전체를 직렬화해서 파일에 저장
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
@@ -50,6 +53,19 @@ public class FileUserStatusRepository implements UserStatusRepository {
             }
         } catch (Exception e) {
             throw new RuntimeException("사용자 상태 데이터 파일을 저장하는 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    // 부모 폴더가 있는 경우에만 생성하는 보조 메서드
+    private void createParentDirectoryIfNeeded() {
+        Path parent = filePath.getParent();
+
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (Exception e) {
+                throw new RuntimeException("사용자 상태 데이터 파일의 상위 폴더를 생성하는 중 오류가 발생했습니다.", e);
+            }
         }
     }
 
@@ -70,6 +86,7 @@ public class FileUserStatusRepository implements UserStatusRepository {
     @Override
     public UserStatus findById(UUID id) {
         Map<UUID, UserStatus> data = loadData();
+
         return data.get(id);
     }
 
@@ -78,10 +95,7 @@ public class FileUserStatusRepository implements UserStatusRepository {
     public List<UserStatus> findAll() {
         Map<UUID, UserStatus> data = loadData();
 
-        List<UserStatus> allUserStatuses = new ArrayList<>();
-        allUserStatuses.addAll(data.values());
-
-        return allUserStatuses;
+        return new ArrayList<>(data.values());
     }
 
     // id로 UserStatus 삭제
@@ -115,6 +129,13 @@ public class FileUserStatusRepository implements UserStatusRepository {
         }
 
         return null;
+    }
+
+    // 추가한 부분:
+    // userId에 해당하는 UserStatus가 존재하는지 확인
+    @Override
+    public boolean existsByUserId(UUID userId) {
+        return findByUserId(userId) != null;
     }
 
     // userId로 UserStatus 삭제

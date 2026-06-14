@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// BinaryContent 데이터를 파일에 저장하고 조회하는 Repository 구현체
+// 객체 직렬화를 사용해서 Map<UUID, BinaryContent> 형태로 파일에 저장
 public class FileBinaryContentRepository implements BinaryContentRepository {
 
     // BinaryContent 데이터를 저장할 파일 경로
@@ -41,8 +43,9 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
     // BinaryContent 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, BinaryContent> data) {
         try {
-            // data 폴더가 없으면 생성
-            Files.createDirectories(filePath.getParent());
+            // 수정한 부분:
+            // filePath.getParent()가 null일 수 있으므로 null이 아닐 때만 폴더 생성
+            createParentDirectoryIfNeeded();
 
             // Map 전체를 직렬화해서 파일에 저장
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
@@ -50,6 +53,20 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
             }
         } catch (Exception e) {
             throw new RuntimeException("바이너리 콘텐츠 데이터 파일을 저장하는 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    // 수정한 부분:
+    // 부모 폴더가 있는 경우에만 생성하는 보조 메서드
+    private void createParentDirectoryIfNeeded() {
+        Path parent = filePath.getParent();
+
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (Exception e) {
+                throw new RuntimeException("바이너리 콘텐츠 데이터 파일의 상위 폴더를 생성하는 중 오류가 발생했습니다.", e);
+            }
         }
     }
 
@@ -70,6 +87,7 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
     @Override
     public BinaryContent findById(UUID id) {
         Map<UUID, BinaryContent> data = loadData();
+
         return data.get(id);
     }
 
@@ -78,10 +96,7 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
     public List<BinaryContent> findAll() {
         Map<UUID, BinaryContent> data = loadData();
 
-        List<BinaryContent> allBinaryContents = new ArrayList<>();
-        allBinaryContents.addAll(data.values());
-
-        return allBinaryContents;
+        return new ArrayList<>(data.values());
     }
 
     // id로 BinaryContent 삭제
@@ -100,5 +115,29 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
         Map<UUID, BinaryContent> data = loadData();
 
         return data.containsKey(id);
+    }
+
+    // 추가한 부분:
+    // 여러 BinaryContent id를 한 번에 조회
+    // Message의 attachmentIds를 실제 BinaryContent 목록으로 조회할 때 사용
+    @Override
+    public List<BinaryContent> findAllByIdIn(List<UUID> ids) {
+        Map<UUID, BinaryContent> data = loadData();
+
+        List<BinaryContent> result = new ArrayList<>();
+
+        if (ids == null || ids.isEmpty()) {
+            return result;
+        }
+
+        for (UUID id : ids) {
+            BinaryContent binaryContent = data.get(id);
+
+            if (binaryContent != null) {
+                result.add(binaryContent);
+            }
+        }
+
+        return result;
     }
 }

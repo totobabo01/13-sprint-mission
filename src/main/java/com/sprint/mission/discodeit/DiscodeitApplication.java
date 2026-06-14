@@ -1,37 +1,28 @@
 package com.sprint.mission.discodeit;
 
-import com.sprint.mission.discodeit.dto.ChannelCreateRequest;
-import com.sprint.mission.discodeit.dto.ChannelResponse;
-import com.sprint.mission.discodeit.dto.ChannelUpdateRequest;
-import com.sprint.mission.discodeit.dto.MessageCreateRequest;
-import com.sprint.mission.discodeit.dto.MessageResponse;
-import com.sprint.mission.discodeit.dto.MessageUpdateRequest;
-import com.sprint.mission.discodeit.dto.UserCreateRequest;
-import com.sprint.mission.discodeit.dto.UserResponse;
-import com.sprint.mission.discodeit.dto.UserUpdateRequest;
+import com.sprint.mission.discodeit.dto.*;
 import com.sprint.mission.discodeit.entity.ChannelType;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
 import com.sprint.mission.discodeit.repository.ChannelRepository;
 import com.sprint.mission.discodeit.repository.MessageRepository;
+import com.sprint.mission.discodeit.repository.ReadStatusRepository;
 import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.UserStatusRepository;
 import com.sprint.mission.discodeit.repository.file.FileBinaryContentRepository;
 import com.sprint.mission.discodeit.repository.file.FileChannelRepository;
 import com.sprint.mission.discodeit.repository.file.FileMessageRepository;
+import com.sprint.mission.discodeit.repository.file.FileReadStatusRepository;
 import com.sprint.mission.discodeit.repository.file.FileUserRepository;
 import com.sprint.mission.discodeit.repository.file.FileUserStatusRepository;
-import com.sprint.mission.discodeit.service.ChannelService;
-import com.sprint.mission.discodeit.service.MessageService;
-import com.sprint.mission.discodeit.service.UserService;
-import com.sprint.mission.discodeit.service.basic.BasicChannelService;
-import com.sprint.mission.discodeit.service.basic.BasicMessageService;
-import com.sprint.mission.discodeit.service.basic.BasicUserService;
+import com.sprint.mission.discodeit.service.*;
+import com.sprint.mission.discodeit.service.basic.*;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 @SpringBootApplication
@@ -44,11 +35,30 @@ public class DiscodeitApplication {
 		ChannelService channelService = context.getBean(ChannelService.class);
 		MessageService messageService = context.getBean(MessageService.class);
 
+		// 추가한 부분: AuthService Bean 가져오기
+		AuthService authService = context.getBean(AuthService.class);
+
+		// 추가한 부분: ReadStatusService Bean 가져오기
+		ReadStatusService readStatusService = context.getBean(ReadStatusService.class);
+
+		// 추가한 부분: UserStatusService Bean 가져오기
+		UserStatusService userStatusService = context.getBean(UserStatusService.class);
+
 		TestData testData = new TestData();
 
 		testUserCrud(userService, testData);
+
+		// 추가한 부분: 로그인 테스트
+		testAuthLogin(authService);
+
 		testChannelCrud(channelService, testData);
 		testMessageCrud(userService, channelService, messageService, testData);
+
+		// 추가한 부분: 읽음 상태 CRUD 테스트
+		testReadStatusCrud(readStatusService, testData);
+
+		// 추가한 부분: 사용자 상태 테스트
+		testUserStatusCrud(userStatusService, testData);
 	}
 
 	@Bean
@@ -76,6 +86,12 @@ public class DiscodeitApplication {
 		return new FileUserStatusRepository(Path.of("data", "spring-user-statuses.ser"));
 	}
 
+	// 추가한 부분: ReadStatusRepository Bean 등록
+	@Bean
+	public ReadStatusRepository readStatusRepository() {
+		return new FileReadStatusRepository(Path.of("data", "spring-read-statuses.ser"));
+	}
+
 	@Bean
 	public UserService userService(
 			UserRepository userRepository,
@@ -89,18 +105,75 @@ public class DiscodeitApplication {
 		);
 	}
 
+	// 추가한 부분: AuthService Bean 등록
+	// 같은 Service 계층을 주입하지 않고 Repository를 직접 주입함
 	@Bean
-	public ChannelService channelService(ChannelRepository channelRepository) {
-		return new BasicChannelService(channelRepository);
+	public AuthService authService(
+			UserRepository userRepository,
+			UserStatusRepository userStatusRepository
+	) {
+		return new BasicAuthService(
+				userRepository,
+				userStatusRepository
+		);
+	}
+
+	@Bean
+	public ChannelService channelService(
+			ChannelRepository channelRepository,
+			UserRepository userRepository,
+			MessageRepository messageRepository,
+			ReadStatusRepository readStatusRepository
+	) {
+		return new BasicChannelService(
+				channelRepository,
+				userRepository,
+				messageRepository,
+				readStatusRepository
+		);
 	}
 
 	@Bean
 	public MessageService messageService(
 			MessageRepository messageRepository,
 			UserRepository userRepository,
+			ChannelRepository channelRepository,
+			BinaryContentRepository binaryContentRepository
+	) {
+		return new BasicMessageService(
+				messageRepository,
+				userRepository,
+				channelRepository,
+				binaryContentRepository
+		);
+	}
+
+	// 추가한 부분: ReadStatusService Bean 등록
+	// 같은 Service 계층을 주입하지 않고 Repository를 직접 주입함
+	@Bean
+	public ReadStatusService readStatusService(
+			ReadStatusRepository readStatusRepository,
+			UserRepository userRepository,
 			ChannelRepository channelRepository
 	) {
-		return new BasicMessageService(messageRepository, userRepository, channelRepository);
+		return new BasicReadStatusService(
+				readStatusRepository,
+				userRepository,
+				channelRepository
+		);
+	}
+
+	// 추가한 부분: UserStatusService Bean 등록
+// 같은 Service 계층을 주입하지 않고 Repository를 직접 주입함
+	@Bean
+	public UserStatusService userStatusService(
+			UserStatusRepository userStatusRepository,
+			UserRepository userRepository
+	) {
+		return new BasicUserStatusService(
+				userStatusRepository,
+				userRepository
+		);
 	}
 
 	static class TestData {
@@ -116,7 +189,6 @@ public class DiscodeitApplication {
 		ChannelResponse channel4;
 		ChannelResponse channel5;
 
-		// 수정한 부분: Message 엔티티가 아니라 MessageResponse 사용
 		MessageResponse message1;
 		MessageResponse message2;
 		MessageResponse message3;
@@ -168,10 +240,34 @@ public class DiscodeitApplication {
 		printAllUsers(us.readAll());
 	}
 
+	// 추가한 부분: AuthService 로그인 테스트
+	private static void testAuthLogin(AuthService authService) {
+		System.out.println("========== 로그인 테스트 ==========");
+
+		// user2는 testUserCrud에서 song -> seol로 수정됨
+		UserResponse loginUser = authService.login(
+				new LoginRequest("seol", "1234")
+		);
+
+		System.out.println("=== 로그인 성공 정보 ===");
+		printUser(loginUser);
+
+		System.out.println("=== 로그인 실패 테스트 ===");
+		try {
+			authService.login(new LoginRequest("seol", "wrong-password"));
+			System.out.println("로그인 실패 검증 실패: 잘못된 비밀번호인데 로그인이 성공했습니다.");
+		} catch (IllegalArgumentException e) {
+			System.out.println("로그인 실패 검증 성공: 예상 예외가 발생했습니다.");
+			System.out.println("예외 메시지: " + e.getMessage());
+		}
+
+		System.out.println();
+	}
+
 	private static void testChannelCrud(ChannelService cs, TestData testData) {
 		System.out.println("========== 채널 CRUD 테스트 ==========");
 
-		testData.channel1 = cs.create(
+		testData.channel1 = cs.createPublicChannel(
 				new ChannelCreateRequest(
 						ChannelType.PUBLIC,
 						"공지사항",
@@ -179,7 +275,7 @@ public class DiscodeitApplication {
 				)
 		);
 
-		testData.channel2 = cs.create(
+		testData.channel2 = cs.createPublicChannel(
 				new ChannelCreateRequest(
 						ChannelType.PUBLIC,
 						"자유게시판",
@@ -187,7 +283,7 @@ public class DiscodeitApplication {
 				)
 		);
 
-		testData.channel3 = cs.create(
+		testData.channel3 = cs.createPublicChannel(
 				new ChannelCreateRequest(
 						ChannelType.PUBLIC,
 						"질문답변",
@@ -195,19 +291,21 @@ public class DiscodeitApplication {
 				)
 		);
 
-		testData.channel4 = cs.create(
-				new ChannelCreateRequest(
-						ChannelType.PRIVATE,
-						"운영진회의",
-						"운영진만 접근 가능한 회의 채널"
+		testData.channel4 = cs.createPrivateChannel(
+				new PrivateChannelCreateRequest(
+						List.of(
+								testData.user1.getId(),
+								testData.user2.getId()
+						)
 				)
 		);
 
-		testData.channel5 = cs.create(
-				new ChannelCreateRequest(
-						ChannelType.PRIVATE,
-						"프로젝트팀",
-						"프로젝트 팀원 전용 협업 채널"
+		testData.channel5 = cs.createPrivateChannel(
+				new PrivateChannelCreateRequest(
+						List.of(
+								testData.user3.getId(),
+								testData.user5.getId()
+						)
 				)
 		);
 
@@ -218,12 +316,12 @@ public class DiscodeitApplication {
 		printChannel(testData.channel4);
 		printChannel(testData.channel5);
 
-		ChannelResponse readChannel = cs.read(testData.channel2.getId());
+		ChannelResponse readChannel = cs.find(testData.channel2.getId());
 		System.out.println("=== 채널 단건 조회 정보 ===");
 		printChannel(readChannel);
 
 		System.out.println("=== 채널 전체 조회 정보 ===");
-		printAllChannels(cs.readAll());
+		printAllChannels(cs.findAllByUserId(testData.user1.getId()));
 
 		ChannelResponse updateChannel = cs.update(
 				new ChannelUpdateRequest(
@@ -242,7 +340,7 @@ public class DiscodeitApplication {
 		verifyDeletedChannel(cs, testData.channel3);
 
 		System.out.println("=== 삭제 후 채널 전체 조회 정보 ===");
-		printAllChannels(cs.readAll());
+		printAllChannels(cs.findAllByUserId(testData.user1.getId()));
 	}
 
 	private static void testMessageCrud(
@@ -253,12 +351,18 @@ public class DiscodeitApplication {
 	) {
 		System.out.println("========== 메시지 CRUD 테스트 ==========");
 
-		// 수정한 부분: create는 이제 MessageCreateRequest DTO를 받음
 		testData.message1 = ms.create(
 				new MessageCreateRequest(
 						"안녕하세요! 처음 가입했습니다.",
 						testData.user1.getId(),
-						testData.channel2.getId()
+						testData.channel2.getId(),
+						List.of(
+								new BinaryContentCreateRequest(
+										"hello.txt",
+										"text/plain",
+										"첨부파일 테스트".getBytes()
+								)
+						)
 				)
 		);
 
@@ -301,15 +405,13 @@ public class DiscodeitApplication {
 		printMessage(testData.message4, us, cs);
 		printMessage(testData.message5, us, cs);
 
-		// 수정한 부분: read는 MessageResponse 반환
 		MessageResponse readMessage = ms.read(testData.message2.getId());
 		System.out.println("=== 메시지 단건 조회 정보 ===");
 		printMessage(readMessage, us, cs);
 
 		System.out.println("=== 메시지 전체 조회 정보 ===");
-		printAllMessages(ms.readAll(), us, cs);
+		printAllMessages(ms.findAllByChannelId(testData.channel2.getId()), us, cs);
 
-		// 수정한 부분: update는 이제 MessageUpdateRequest DTO를 받음
 		MessageResponse updateMessage = ms.update(
 				new MessageUpdateRequest(
 						testData.message2.getId(),
@@ -325,7 +427,80 @@ public class DiscodeitApplication {
 		verifyDeletedMessage(ms, testData.message4);
 
 		System.out.println("=== 삭제 후 메시지 전체 조회 정보 ===");
-		printAllMessages(ms.readAll(), us, cs);
+		printAllMessages(ms.findAllByChannelId(testData.channel2.getId()), us, cs);
+	}
+
+	// 추가한 부분: ReadStatus CRUD 테스트
+	private static void testReadStatusCrud(ReadStatusService rs, TestData testData) {
+		System.out.println("========== 읽음 상태 CRUD 테스트 ==========");
+
+		ReadStatusResponse readStatus1 = rs.create(
+				new ReadStatusCreateRequest(
+						testData.user1.getId(),
+						testData.channel1.getId()
+				)
+		);
+
+		ReadStatusResponse readStatus2 = rs.create(
+				new ReadStatusCreateRequest(
+						testData.user2.getId(),
+						testData.channel2.getId()
+				)
+		);
+
+		System.out.println("=== 읽음 상태 생성 정보 ===");
+		printReadStatus(readStatus1);
+		printReadStatus(readStatus2);
+
+		ReadStatusResponse findReadStatus = rs.find(readStatus1.getId());
+		System.out.println("=== 읽음 상태 단건 조회 정보 ===");
+		printReadStatus(findReadStatus);
+
+		System.out.println("=== 특정 사용자 읽음 상태 전체 조회 정보 ===");
+		printAllReadStatuses(rs.findAllByUserId(testData.user1.getId()));
+
+		ReadStatusResponse updateReadStatus = rs.update(
+				new ReadStatusUpdateRequest(
+						readStatus1.getId(),
+						Instant.now()
+				)
+		);
+
+		System.out.println("=== 읽음 상태 수정 정보 ===");
+		printReadStatus(updateReadStatus);
+
+		rs.delete(readStatus2.getId());
+		System.out.println("=== 읽음 상태 삭제 조회 정보 ===");
+		verifyDeletedReadStatus(rs, readStatus2);
+
+		System.out.println();
+	}
+
+	// 추가한 부분: UserStatus 테스트 메서드
+	private static void testUserStatusCrud(UserStatusService uss, TestData testData) {
+		System.out.println("========== 사용자 상태 테스트 ==========");
+
+		UserStatusResponse onlineStatus = uss.updateOnline(testData.user1.getId());
+
+		System.out.println("=== 사용자 온라인 상태 변경 정보 ===");
+		printUserStatus(onlineStatus);
+
+		UserStatusResponse findStatus = uss.findByUserId(testData.user1.getId());
+
+		System.out.println("=== 사용자 상태 단건 조회 정보 ===");
+		printUserStatus(findStatus);
+
+		UserStatusResponse offlineStatus = uss.updateOffline(testData.user1.getId());
+
+		System.out.println("=== 사용자 오프라인 상태 변경 정보 ===");
+		printUserStatus(offlineStatus);
+
+		uss.deleteByUserId(testData.user1.getId());
+
+		System.out.println("=== 사용자 상태 삭제 조회 정보 ===");
+		verifyDeletedUserStatus(uss, testData.user1.getId());
+
+		System.out.println();
 	}
 
 	private static void printUser(UserResponse user) {
@@ -363,7 +538,6 @@ public class DiscodeitApplication {
 		System.out.println();
 	}
 
-	// 수정한 부분: Message 엔티티가 아니라 MessageResponse 출력
 	private static void printMessage(MessageResponse message, UserService us, ChannelService cs) {
 		String authorName = findAuthorName(message, us);
 		String channelName = findChannelName(message, cs);
@@ -375,12 +549,40 @@ public class DiscodeitApplication {
 		System.out.println("===================================================");
 	}
 
-	// 수정한 부분: List<Message>가 아니라 List<MessageResponse>
 	private static void printAllMessages(List<MessageResponse> messages, UserService us, ChannelService cs) {
 		System.out.println("현재 저장된 메시지 수: " + messages.size());
 
 		for (MessageResponse message : messages) {
 			printMessage(message, us, cs);
+		}
+
+		System.out.println();
+	}
+
+	// 추가한 부분: ReadStatus 출력 메서드
+	private static void printReadStatus(ReadStatusResponse readStatus) {
+		System.out.println("읽음 상태 아이디: " + readStatus.getId());
+		System.out.println("사용자 아이디: " + readStatus.getUserId());
+		System.out.println("채널 아이디: " + readStatus.getChannelId());
+		System.out.println("마지막 읽은 시간: " + readStatus.getLastReadAt());
+		System.out.println("===================================================");
+	}
+
+	// 추가한 부분: UserStatus 출력 메서드
+	private static void printUserStatus(UserStatusResponse userStatus) {
+		System.out.println("사용자 상태 아이디: " + userStatus.getId());
+		System.out.println("사용자 아이디: " + userStatus.getUserId());
+		System.out.println("온라인 여부: " + userStatus.isOnline());
+		System.out.println("마지막 활동 시간: " + userStatus.getLastActiveAt());
+		System.out.println("===================================================");
+	}
+
+	// 추가한 부분: ReadStatus 전체 출력 메서드
+	private static void printAllReadStatuses(List<ReadStatusResponse> readStatuses) {
+		System.out.println("현재 조회된 읽음 상태 수: " + readStatuses.size());
+
+		for (ReadStatusResponse readStatus : readStatuses) {
+			printReadStatus(readStatus);
 		}
 
 		System.out.println();
@@ -392,7 +594,7 @@ public class DiscodeitApplication {
 	}
 
 	private static String findChannelName(MessageResponse message, ChannelService cs) {
-		ChannelResponse channel = cs.read(message.getChannelId());
+		ChannelResponse channel = cs.find(message.getChannelId());
 		return channel.getName();
 	}
 
@@ -414,7 +616,7 @@ public class DiscodeitApplication {
 
 	private static void verifyDeletedChannel(ChannelService cs, ChannelResponse deletedChannel) {
 		try {
-			cs.read(deletedChannel.getId());
+			cs.find(deletedChannel.getId());
 			System.out.println("삭제 실패: 삭제 후에도 채널이 조회됩니다.");
 		} catch (IllegalArgumentException e) {
 			System.out.println("삭제 완료: 삭제 후 채널 조회 시 예상 예외가 발생했습니다.");
@@ -428,13 +630,46 @@ public class DiscodeitApplication {
 		System.out.println();
 	}
 
-	// 수정한 부분: 삭제 검증 대상도 MessageResponse
 	private static void verifyDeletedMessage(MessageService ms, MessageResponse deletedMessage) {
 		try {
 			ms.read(deletedMessage.getId());
 			System.out.println("삭제 실패: 삭제 후에도 메시지가 조회됩니다.");
 		} catch (IllegalArgumentException e) {
 			System.out.println("삭제 완료: 삭제 후 메시지 조회 시 예상 예외가 발생했습니다.");
+			System.out.println("예외 메시지: " + e.getMessage());
+		} catch (Exception e) {
+			System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
+			System.out.println("예외 종류: " + e.getClass().getSimpleName());
+			System.out.println("예외 메시지: " + e.getMessage());
+		}
+
+		System.out.println();
+	}
+
+	// 추가한 부분: ReadStatus 삭제 검증 메서드
+	private static void verifyDeletedReadStatus(ReadStatusService rs, ReadStatusResponse deletedReadStatus) {
+		try {
+			rs.find(deletedReadStatus.getId());
+			System.out.println("삭제 실패: 삭제 후에도 읽음 상태가 조회됩니다.");
+		} catch (IllegalArgumentException e) {
+			System.out.println("삭제 완료: 삭제 후 읽음 상태 조회 시 예상 예외가 발생했습니다.");
+			System.out.println("예외 메시지: " + e.getMessage());
+		} catch (Exception e) {
+			System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
+			System.out.println("예외 종류: " + e.getClass().getSimpleName());
+			System.out.println("예외 메시지: " + e.getMessage());
+		}
+
+		System.out.println();
+	}
+
+	// 추가한 부분: UserStatus 삭제 검증 메서드
+	private static void verifyDeletedUserStatus(UserStatusService uss, java.util.UUID userId) {
+		try {
+			uss.findByUserId(userId);
+			System.out.println("삭제 실패: 삭제 후에도 사용자 상태가 조회됩니다.");
+		} catch (IllegalArgumentException e) {
+			System.out.println("삭제 완료: 삭제 후 사용자 상태 조회 시 예상 예외가 발생했습니다.");
 			System.out.println("예외 메시지: " + e.getMessage());
 		} catch (Exception e) {
 			System.out.println("삭제 검증 실패: 예상하지 못한 예외가 발생했습니다.");
