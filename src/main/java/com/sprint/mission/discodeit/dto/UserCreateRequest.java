@@ -1,6 +1,7 @@
 package com.sprint.mission.discodeit.dto;
 
 import lombok.Getter;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 @Getter
 public class UserCreateRequest {

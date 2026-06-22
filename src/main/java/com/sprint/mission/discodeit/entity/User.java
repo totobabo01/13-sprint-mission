@@ -20,9 +20,7 @@ public class User implements Serializable {
     private String password;
     private UUID profileId;
 
-
     public User(String username, String email, String password) {
-        // 수정한 부분: 생성자에서 잘못된 값으로 User 객체가 생성되지 않도록 검증
         validate(username, email, password);
 
         this.id = UUID.randomUUID();
@@ -33,11 +31,9 @@ public class User implements Serializable {
         this.email = email;
         this.password = password;
         this.profileId = null;
-
     }
 
     public void update(String username, String email, String password) {
-        // 수정한 부분: 수정할 때도 잘못된 값이 들어오지 않도록 검증
         validate(username, email, password);
 
         this.username = username;
@@ -46,12 +42,22 @@ public class User implements Serializable {
         this.updatedAt = Instant.now();
     }
 
+    // profileId까지 함께 수정할 때 사용
+    public void update(String username, String email, String password, UUID profileId) {
+        validate(username, email, password);
+
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.profileId = profileId;
+        this.updatedAt = Instant.now();
+    }
+
     public void updateProfileId(UUID profileId) {
         this.profileId = profileId;
         this.updatedAt = Instant.now();
     }
 
-    // 수정한 부분: 생성자와 update()에서 공통으로 사용할 입력값 검증 메서드 추가
     private void validate(String username, String email, String password) {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("사용자 이름은 비어 있을 수 없습니다.");

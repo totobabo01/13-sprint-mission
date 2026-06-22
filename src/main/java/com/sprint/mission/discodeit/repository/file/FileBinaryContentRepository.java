@@ -2,6 +2,10 @@ package com.sprint.mission.discodeit.repository.file;
 
 import com.sprint.mission.discodeit.entity.BinaryContent;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,12 +19,29 @@ import java.util.UUID;
 
 // BinaryContent 데이터를 파일에 저장하고 조회하는 Repository 구현체
 // 객체 직렬화를 사용해서 Map<UUID, BinaryContent> 형태로 파일에 저장
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "file",
+        matchIfMissing = true
+)
 public class FileBinaryContentRepository implements BinaryContentRepository {
 
     // BinaryContent 데이터를 저장할 파일 경로
     private final Path filePath;
 
-    // 생성자: 저장 파일 경로를 외부에서 주입받음
+    // 추가한 부분:
+    // Spring 자동 Bean 등록용 생성자
+    // 생성자가 여러 개 있을 때 Spring이 이 생성자를 사용하도록 @Autowired를 붙임
+    @Autowired
+    public FileBinaryContentRepository(
+            @Value("${discodeit.repository.file-directory:data}") String fileDirectory
+    ) {
+        this.filePath = Path.of(fileDirectory, "spring-binary-contents.ser");
+    }
+
+    // 기존 생성자 유지:
+    // JavaApplication에서 직접 new FileBinaryContentRepository(Path.of(...)) 할 때 사용 가능
     public FileBinaryContentRepository(Path filePath) {
         this.filePath = filePath;
     }
@@ -43,7 +64,6 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
     // BinaryContent 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, BinaryContent> data) {
         try {
-            // 수정한 부분:
             // filePath.getParent()가 null일 수 있으므로 null이 아닐 때만 폴더 생성
             createParentDirectoryIfNeeded();
 
@@ -56,7 +76,6 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
         }
     }
 
-    // 수정한 부분:
     // 부모 폴더가 있는 경우에만 생성하는 보조 메서드
     private void createParentDirectoryIfNeeded() {
         Path parent = filePath.getParent();
@@ -117,7 +136,6 @@ public class FileBinaryContentRepository implements BinaryContentRepository {
         return data.containsKey(id);
     }
 
-    // 추가한 부분:
     // 여러 BinaryContent id를 한 번에 조회
     // Message의 attachmentIds를 실제 BinaryContent 목록으로 조회할 때 사용
     @Override

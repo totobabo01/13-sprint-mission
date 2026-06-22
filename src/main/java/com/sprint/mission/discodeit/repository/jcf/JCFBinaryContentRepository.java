@@ -2,6 +2,8 @@ package com.sprint.mission.discodeit.repository.jcf;
 
 import com.sprint.mission.discodeit.entity.BinaryContent;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 // BinaryContent 데이터를 메모리에 저장하고 조회하는 Repository 구현체
 // JCF의 HashMap을 사용해서 데이터를 저장함
 public class JCFBinaryContentRepository implements BinaryContentRepository {

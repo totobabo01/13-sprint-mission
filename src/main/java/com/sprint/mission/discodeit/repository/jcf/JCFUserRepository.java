@@ -2,6 +2,8 @@ package com.sprint.mission.discodeit.repository.jcf;
 
 import com.sprint.mission.discodeit.entity.User;
 import com.sprint.mission.discodeit.repository.UserRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +11,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// JCF 기반 UserRepository 구현체
+// discodeit.repository.type=jcf 일 때만 Bean으로 등록됨
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 public class JCFUserRepository implements UserRepository {
 
     // User 데이터를 메모리에 저장하는 Map

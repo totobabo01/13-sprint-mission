@@ -2,6 +2,8 @@ package com.sprint.mission.discodeit.repository.jcf;
 
 import com.sprint.mission.discodeit.entity.ReadStatus;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 // ReadStatus 데이터를 메모리에 저장하고 조회하는 Repository 구현체
 // JCF의 HashMap을 사용해서 데이터를 저장
 public class JCFReadStatusRepository implements ReadStatusRepository {
@@ -98,9 +105,46 @@ public class JCFReadStatusRepository implements ReadStatusRepository {
         return result;
     }
 
+    // 추가한 부분: 특정 User가 참여한 Channel id 목록 조회
+    // BasicChannelService에서 PRIVATE 채널 조회 권한을 판단할 때 사용
+    @Override
+    public List<UUID> findChannelIdsByUserId(UUID userId) {
+        List<UUID> channelIds = new ArrayList<>();
+
+        for (ReadStatus readStatus : data.values()) {
+            if (readStatus.getUserId().equals(userId)) {
+                channelIds.add(readStatus.getChannelId());
+            }
+        }
+
+        return channelIds;
+    }
+
+    // 추가한 부분: 특정 Channel에 참여한 User id 목록 조회
+    // ChannelResponse의 participantUserIds를 만들 때 사용
+    @Override
+    public List<UUID> findUserIdsByChannelId(UUID channelId) {
+        List<UUID> userIds = new ArrayList<>();
+
+        for (ReadStatus readStatus : data.values()) {
+            if (readStatus.getChannelId().equals(channelId)) {
+                userIds.add(readStatus.getUserId());
+            }
+        }
+
+        return userIds;
+    }
+
     // 특정 Channel과 관련된 모든 ReadStatus 삭제
     @Override
     public void deleteByChannelId(UUID channelId) {
         data.values().removeIf(readStatus -> readStatus.getChannelId().equals(channelId));
+    }
+
+    // 추가한 부분: 특정 User와 관련된 모든 ReadStatus 삭제
+    // User 삭제 시 관련 ReadStatus도 같이 삭제하기 위해 사용
+    @Override
+    public void deleteByUserId(UUID userId) {
+        data.values().removeIf(readStatus -> readStatus.getUserId().equals(userId));
     }
 }

@@ -12,6 +12,7 @@ import com.sprint.mission.discodeit.repository.MessageRepository;
 import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.service.MessageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 // Message 기능을 실제로 구현하는 Service 클래스
 // MessageService 인터페이스의 기능들을 구현함
+@Service
 @RequiredArgsConstructor
 public class BasicMessageService implements MessageService {
 
@@ -132,13 +134,25 @@ public class BasicMessageService implements MessageService {
             throw new IllegalArgumentException("메시지 수정 요청은 비어 있을 수 없습니다.");
         }
 
-        // 메시지 수정 전에도 내용이 비어 있거나 공백인지 검증
+        System.out.println("===== 메시지 수정 요청 확인 =====");
+        System.out.println("request.getId() = " + request.getId());
+        System.out.println("request.getContent() = " + request.getContent());
+
+        System.out.println("===== 현재 저장된 메시지 목록 =====");
+        for (Message savedMessage : messageRepository.findAll()) {
+            System.out.println("savedMessage.getId() = " + savedMessage.getId());
+        }
+
+        if (request.getId() == null) {
+            throw new IllegalArgumentException("수정할 메시지 id는 null일 수 없습니다.");
+        }
+
         validateContent(request.getContent());
 
         Message message = messageRepository.findById(request.getId());
 
         if (message == null) {
-            throw new IllegalArgumentException("수정할 메시지를 찾을 수 없습니다.");
+            throw new IllegalArgumentException("수정할 메시지를 찾을 수 없습니다. id=" + request.getId());
         }
 
         message.update(request.getContent());

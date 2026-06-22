@@ -2,6 +2,10 @@ package com.sprint.mission.discodeit.repository.file;
 
 import com.sprint.mission.discodeit.entity.UserStatus;
 import com.sprint.mission.discodeit.repository.UserStatusRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,12 +19,29 @@ import java.util.UUID;
 
 // 파일 기반 UserStatusRepository 구현체
 // UserStatus 데이터를 객체 직렬화를 사용해 파일에 저장함
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "file",
+        matchIfMissing = true
+)
 public class FileUserStatusRepository implements UserStatusRepository {
 
     // UserStatus 데이터를 저장할 파일 경로
     private final Path filePath;
 
-    // 생성자: 저장 파일 경로를 외부에서 주입받음
+    // 추가한 부분:
+    // Spring 자동 Bean 등록용 생성자
+    // 생성자가 여러 개 있을 때 Spring이 이 생성자를 사용하도록 @Autowired를 붙임
+    @Autowired
+    public FileUserStatusRepository(
+            @Value("${discodeit.repository.file-directory:data}") String fileDirectory
+    ) {
+        this.filePath = Path.of(fileDirectory, "spring-user-statuses.ser");
+    }
+
+    // 기존 생성자 유지:
+    // JavaApplication에서 직접 new FileUserStatusRepository(Path.of(...)) 할 때 사용 가능
     public FileUserStatusRepository(Path filePath) {
         this.filePath = filePath;
     }
@@ -43,11 +64,8 @@ public class FileUserStatusRepository implements UserStatusRepository {
     // UserStatus 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, UserStatus> data) {
         try {
-            // 수정한 부분:
-            // filePath.getParent()가 null일 수 있으므로 null이 아닐 때만 폴더 생성
             createParentDirectoryIfNeeded();
 
-            // Map 전체를 직렬화해서 파일에 저장
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
                 oos.writeObject(data);
             }
@@ -131,7 +149,6 @@ public class FileUserStatusRepository implements UserStatusRepository {
         return null;
     }
 
-    // 추가한 부분:
     // userId에 해당하는 UserStatus가 존재하는지 확인
     @Override
     public boolean existsByUserId(UUID userId) {

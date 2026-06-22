@@ -104,7 +104,7 @@ public class JavaApplication {
 
     private static ServiceBundle createServices() {
         UserRepository userRepository =
-                new FileUserRepository(Path.of("data", "basic-users.ser"));
+                new FileUserRepository("data");
 
         ChannelRepository channelRepository =
                 new FileChannelRepository(Path.of("data", "basic-channels.ser"));
@@ -121,15 +121,17 @@ public class JavaApplication {
         ReadStatusRepository readStatusRepository =
                 new FileReadStatusRepository(Path.of("data", "basic-read-statuses.ser"));
 
+        // 수정한 부분:
+        // BasicUserService가 UserRepository, BinaryContentRepository, UserStatusRepository뿐만 아니라
+        // MessageRepository, ReadStatusRepository도 함께 필요하도록 변경되었기 때문에 같이 전달
         UserService userService = new BasicUserService(
                 userRepository,
                 binaryContentRepository,
-                userStatusRepository
+                userStatusRepository,
+                messageRepository,
+                readStatusRepository
         );
 
-        // 수정한 부분:
-        // BasicChannelService가 ChannelRepository만 받는 구조에서
-        // UserRepository, MessageRepository, ReadStatusRepository도 함께 받는 구조로 변경됨
         ChannelService channelService = new BasicChannelService(
                 channelRepository,
                 userRepository,
@@ -199,6 +201,7 @@ public class JavaApplication {
                         "seol",
                         "seol@email.com",
                         "1234",
+                        null,
                         null
                 )
         );

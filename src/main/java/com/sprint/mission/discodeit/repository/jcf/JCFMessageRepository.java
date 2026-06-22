@@ -2,13 +2,21 @@ package com.sprint.mission.discodeit.repository.jcf;
 
 import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.repository.MessageRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 // Message 데이터를 메모리에 저장하고 조회하는 Repository 구현체
 // JCF의 HashMap을 사용해서 데이터를 저장함
 public class JCFMessageRepository implements MessageRepository {
@@ -58,8 +66,8 @@ public class JCFMessageRepository implements MessageRepository {
         return data.containsKey(id);
     }
 
-    // 추가한 부분: 특정 Channel에 작성된 메시지 목록 조회
-    // ChannelResponse에서 가장 최근 메시지 시간을 구할 때 사용
+    // 특정 Channel에 작성된 메시지 목록 조회
+    // MessageService의 findAllByChannelId 기능에 사용
     @Override
     public List<Message> findAllByChannelId(UUID channelId) {
         List<Message> result = new ArrayList<>();
@@ -73,10 +81,34 @@ public class JCFMessageRepository implements MessageRepository {
         return result;
     }
 
-    // 추가한 부분: 특정 Channel에 작성된 모든 메시지 삭제
+    // 추가한 부분: 특정 Channel의 가장 최근 메시지 생성 시간 조회
+    // ChannelResponse의 lastMessageAt 값을 구할 때 사용
+    @Override
+    public Instant findLastMessageAtByChannelId(UUID channelId) {
+        Instant lastMessageAt = null;
+
+        for (Message message : data.values()) {
+            if (message.getChannelId().equals(channelId)) {
+                if (lastMessageAt == null || message.getCreatedAt().isAfter(lastMessageAt)) {
+                    lastMessageAt = message.getCreatedAt();
+                }
+            }
+        }
+
+        return lastMessageAt;
+    }
+
+    // 특정 Channel에 작성된 모든 메시지 삭제
     // Channel 삭제 시 관련 Message도 같이 삭제하기 위해 사용
     @Override
     public void deleteByChannelId(UUID channelId) {
         data.values().removeIf(message -> message.getChannelId().equals(channelId));
+    }
+
+    // 특정 User가 작성한 모든 메시지 삭제
+    // User 삭제 시 관련 Message도 같이 삭제하기 위해 사용
+    @Override
+    public void deleteByAuthorId(UUID authorId) {
+        data.values().removeIf(message -> message.getAuthorId().equals(authorId));
     }
 }
