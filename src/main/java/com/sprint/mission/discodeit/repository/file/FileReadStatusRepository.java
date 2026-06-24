@@ -2,6 +2,10 @@ package com.sprint.mission.discodeit.repository.file;
 
 import com.sprint.mission.discodeit.entity.ReadStatus;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,12 +19,28 @@ import java.util.UUID;
 
 // ReadStatus 데이터를 파일에 저장하고 조회하는 Repository 구현체
 // 객체 직렬화를 사용해서 Map<UUID, ReadStatus> 형태로 파일에 저장
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "file",
+        matchIfMissing = true
+)
 public class FileReadStatusRepository implements ReadStatusRepository {
 
     // ReadStatus 데이터를 저장할 파일 경로
     private final Path filePath;
 
-    // 생성자: 저장 파일 경로를 외부에서 주입받음
+    // Spring 자동 Bean 등록용 생성자
+    // 생성자가 여러 개 있을 때 Spring이 이 생성자를 사용하도록 @Autowired를 붙임
+    @Autowired
+    public FileReadStatusRepository(
+            @Value("${discodeit.repository.file-directory:data}") String fileDirectory
+    ) {
+        this.filePath = Path.of(fileDirectory, "spring-read-statuses.ser");
+    }
+
+    // 기존 생성자 유지:
+    // JavaApplication에서 직접 new FileReadStatusRepository(Path.of(...)) 할 때 사용 가능
     public FileReadStatusRepository(Path filePath) {
         this.filePath = filePath;
     }
@@ -43,15 +63,26 @@ public class FileReadStatusRepository implements ReadStatusRepository {
     // ReadStatus 데이터를 파일에 저장하는 메서드
     private void saveData(Map<UUID, ReadStatus> data) {
         try {
-            if (filePath.getParent() != null) {
-                Files.createDirectories(filePath.getParent());
-            }
+            createParentDirectoryIfNeeded();
 
             try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(filePath))) {
                 oos.writeObject(data);
             }
         } catch (Exception e) {
             throw new RuntimeException("읽음 상태 데이터 파일을 저장하는 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    // 부모 폴더가 있는 경우에만 생성하는 보조 메서드
+    private void createParentDirectoryIfNeeded() {
+        Path parent = filePath.getParent();
+
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (Exception e) {
+                throw new RuntimeException("읽음 상태 데이터 파일의 상위 폴더를 생성하는 중 오류가 발생했습니다.", e);
+            }
         }
     }
 
@@ -149,12 +180,57 @@ public class FileReadStatusRepository implements ReadStatusRepository {
         return result;
     }
 
+    // 추가한 부분: 특정 User가 참여한 Channel id 목록 조회
+    // BasicChannelService에서 PRIVATE 채널 조회 권한을 판단할 때 사용
+    @Override
+    public List<UUID> findChannelIdsByUserId(UUID userId) {
+        Map<UUID, ReadStatus> data = loadData();
+
+        List<UUID> channelIds = new ArrayList<>();
+
+        for (ReadStatus readStatus : data.values()) {
+            if (readStatus.getUserId().equals(userId)) {
+                channelIds.add(readStatus.getChannelId());
+            }
+        }
+
+        return channelIds;
+    }
+
+    // 추가한 부분: 특정 Channel에 참여한 User id 목록 조회
+    // ChannelResponse의 participantUserIds를 만들 때 사용
+    @Override
+    public List<UUID> findUserIdsByChannelId(UUID channelId) {
+        Map<UUID, ReadStatus> data = loadData();
+
+        List<UUID> userIds = new ArrayList<>();
+
+        for (ReadStatus readStatus : data.values()) {
+            if (readStatus.getChannelId().equals(channelId)) {
+                userIds.add(readStatus.getUserId());
+            }
+        }
+
+        return userIds;
+    }
+
     // 특정 Channel과 관련된 모든 ReadStatus 삭제
     @Override
     public void deleteByChannelId(UUID channelId) {
         Map<UUID, ReadStatus> data = loadData();
 
         data.values().removeIf(readStatus -> readStatus.getChannelId().equals(channelId));
+
+        saveData(data);
+    }
+
+    // 추가한 부분: 특정 User와 관련된 모든 ReadStatus 삭제
+    // User 삭제 시 관련 ReadStatus도 같이 삭제하기 위해 사용
+    @Override
+    public void deleteByUserId(UUID userId) {
+        Map<UUID, ReadStatus> data = loadData();
+
+        data.values().removeIf(readStatus -> readStatus.getUserId().equals(userId));
 
         saveData(data);
     }

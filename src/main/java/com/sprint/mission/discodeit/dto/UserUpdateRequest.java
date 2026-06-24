@@ -1,10 +1,12 @@
 package com.sprint.mission.discodeit.dto;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
 @Getter
+@NoArgsConstructor
 public class UserUpdateRequest {
 
     // 수정할 사용자의 id
@@ -19,16 +21,25 @@ public class UserUpdateRequest {
     // 수정할 비밀번호
     private String password;
 
-    // 선택적으로 교체할 프로필 이미지 정보
-    // 프로필 이미지를 교체하지 않는 경우 null일 수 있음
+    // 이미 업로드된 BinaryContent의 id
+    private UUID profileId;
+
+    // 프로필 이미지를 새로 업로드해서 교체하는 경우 사용
     private BinaryContentCreateRequest profileImage;
 
-    // 생성자: 사용자 수정에 필요한 값들을 하나의 DTO로 전달받음
-    public UserUpdateRequest(UUID id, String username, String email, String password, BinaryContentCreateRequest profileImage) {
+    public UserUpdateRequest(
+            UUID id,
+            String username,
+            String email,
+            String password,
+            UUID profileId,
+            BinaryContentCreateRequest profileImage
+    ) {
         this.id = id;
         this.username = username;
         this.email = email;
         this.password = password;
+        this.profileId = profileId;
         this.profileImage = profileImage;
     }
 }

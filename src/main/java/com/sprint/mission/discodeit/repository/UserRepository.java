@@ -1,12 +1,19 @@
 package com.sprint.mission.discodeit.repository;
 
 import com.sprint.mission.discodeit.entity.User;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 // User 데이터를 저장하고 조회하기 위한 Repository 인터페이스
 // Service는 이 인터페이스를 통해 User 저장소에 접근함
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 public interface UserRepository {
 
     // 사용자 저장

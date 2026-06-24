@@ -1,12 +1,19 @@
 package com.sprint.mission.discodeit.repository;
 
 import com.sprint.mission.discodeit.entity.UserStatus;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 // UserStatus 데이터를 저장하고 조회하기 위한 Repository 인터페이스
 // UserStatus는 사용자의 온라인 상태, 마지막 접속 시간을 관리함
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 public interface UserStatusRepository {
 
     // UserStatus 저장

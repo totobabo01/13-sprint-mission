@@ -1,12 +1,19 @@
 package com.sprint.mission.discodeit.repository;
 
 import com.sprint.mission.discodeit.entity.BinaryContent;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 // BinaryContent 데이터를 저장하고 조회하기 위한 Repository 인터페이스
 // BinaryContent는 프로필 이미지, 메시지 첨부파일 같은 바이너리 파일 정보를 나타냄
+@Repository
+@ConditionalOnProperty(
+        name = "discodeit.repository.type",
+        havingValue = "jcf"
+)
 public interface BinaryContentRepository {
 
     // BinaryContent 저장

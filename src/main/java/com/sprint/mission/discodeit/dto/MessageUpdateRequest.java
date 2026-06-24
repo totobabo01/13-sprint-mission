@@ -1,12 +1,14 @@
 package com.sprint.mission.discodeit.dto;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
 // 메시지 수정 요청 DTO
 // 어떤 메시지를 어떤 내용으로 수정할지에 대한 데이터를 담는 클래스
 @Getter
+@NoArgsConstructor
 public class MessageUpdateRequest {
 
     // 수정할 메시지의 id

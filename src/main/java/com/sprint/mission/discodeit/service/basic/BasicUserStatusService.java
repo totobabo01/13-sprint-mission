@@ -6,11 +6,13 @@ import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.UserStatusRepository;
 import com.sprint.mission.discodeit.service.UserStatusService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
 // UserStatus 기능을 실제로 구현하는 Service 클래스
 // UserStatusService 인터페이스의 기능들을 구현함
+@Service
 @RequiredArgsConstructor
 public class BasicUserStatusService implements UserStatusService {
 

@@ -9,6 +9,7 @@ import com.sprint.mission.discodeit.repository.ReadStatusRepository;
 import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.service.ReadStatusService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 // ReadStatus 기능을 실제로 구현하는 Service 클래스
 // ReadStatusService 인터페이스의 기능들을 구현함
+@Service
 @RequiredArgsConstructor
 public class BasicReadStatusService implements ReadStatusService {
 

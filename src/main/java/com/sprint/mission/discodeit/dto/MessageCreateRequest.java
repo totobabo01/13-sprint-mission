@@ -1,6 +1,7 @@
 package com.sprint.mission.discodeit.dto;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.UUID;
@@ -8,6 +9,7 @@ import java.util.UUID;
 // 메시지 생성 요청 DTO
 // 메시지를 생성할 때 필요한 데이터를 담는 클래스
 @Getter
+@NoArgsConstructor
 public class MessageCreateRequest {
 
     // 메시지 내용
@@ -20,7 +22,6 @@ public class MessageCreateRequest {
     private UUID channelId;
 
     // 첨부파일 생성 요청 목록
-    // 메시지를 생성할 때 함께 저장할 첨부파일 정보들을 담음
     // 첨부파일이 없으면 null 또는 빈 리스트일 수 있음
     private List<BinaryContentCreateRequest> attachments;
 
