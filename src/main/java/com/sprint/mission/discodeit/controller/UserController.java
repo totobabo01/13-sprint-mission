@@ -5,8 +5,10 @@ import com.sprint.mission.discodeit.dto.UserResponse;
 import com.sprint.mission.discodeit.dto.UserUpdateRequest;
 import com.sprint.mission.discodeit.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,33 +20,54 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public UserResponse create(@RequestBody UserCreateRequest request) {
-        return userService.create(request);
+    public ResponseEntity<UserResponse> create(@RequestBody UserCreateRequest request) {
+        UserResponse response = userService.create(request);
+
+        URI location = URI.create("/api/users/" + response.getId());
+
+        return ResponseEntity
+                .created(location)
+                .body(response);
     }
 
     @GetMapping("/{id}")
-    public UserResponse read(@PathVariable UUID id) {
-        return userService.read(id);
+    public ResponseEntity<UserResponse> read(@PathVariable UUID id) {
+        UserResponse response = userService.read(id);
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public List<UserResponse> readAll() {
-        return userService.readAll();
+    public ResponseEntity<List<UserResponse>> readAll() {
+        List<UserResponse> responses = userService.readAll();
+
+        return ResponseEntity.ok(responses);
     }
 
     // 심화 요구사항: GET /api/user/findAll
     @GetMapping("/findAll")
-    public List<UserResponse> findAll() {
-        return userService.readAll();
+    public ResponseEntity<List<UserResponse>> findAll() {
+        List<UserResponse> responses = userService.readAll();
+
+        return ResponseEntity.ok(responses);
     }
 
     @PatchMapping("/{id}")
-    public UserResponse update(@PathVariable UUID id, @RequestBody UserUpdateRequest request) {
-        return userService.update(request);
+    public ResponseEntity<UserResponse> update(
+            @PathVariable UUID id,
+            @RequestBody UserUpdateRequest request
+    ) {
+        UserResponse response = userService.update(request);
+
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
         userService.delete(id);
+
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 }

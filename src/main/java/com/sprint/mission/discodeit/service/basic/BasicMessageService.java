@@ -35,7 +35,6 @@ public class BasicMessageService implements MessageService {
     // 같은 Service 계층끼리 의존하지 않기 위해 ChannelService 대신 ChannelRepository 사용
     private final ChannelRepository channelRepository;
 
-    // 추가한 부분:
     // 메시지 첨부파일을 저장하고 삭제하기 위한 Repository
     // 같은 Service 계층끼리 의존하지 않기 위해 BinaryContentService 대신 Repository 사용
     private final BinaryContentRepository binaryContentRepository;
@@ -69,7 +68,6 @@ public class BasicMessageService implements MessageService {
                 request.getChannelId()
         );
 
-        // 추가한 부분:
         // 요청에 첨부파일이 있으면 BinaryContent로 저장하고
         // 저장된 BinaryContent의 id를 Message의 attachmentIds에 추가
         List<BinaryContentCreateRequest> attachments = request.getAttachments();
@@ -110,7 +108,6 @@ public class BasicMessageService implements MessageService {
     }
 
     // 특정 Channel에 작성된 메시지 목록 조회
-    // 기존 readAll() 대신 channelId 기준 조회로 변경
     @Override
     public List<MessageResponse> findAllByChannelId(UUID channelId) {
         if (!channelRepository.existsById(channelId)) {
@@ -132,15 +129,6 @@ public class BasicMessageService implements MessageService {
     public MessageResponse update(MessageUpdateRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("메시지 수정 요청은 비어 있을 수 없습니다.");
-        }
-
-        System.out.println("===== 메시지 수정 요청 확인 =====");
-        System.out.println("request.getId() = " + request.getId());
-        System.out.println("request.getContent() = " + request.getContent());
-
-        System.out.println("===== 현재 저장된 메시지 목록 =====");
-        for (Message savedMessage : messageRepository.findAll()) {
-            System.out.println("savedMessage.getId() = " + savedMessage.getId());
         }
 
         if (request.getId() == null) {
@@ -171,7 +159,6 @@ public class BasicMessageService implements MessageService {
             throw new IllegalArgumentException("삭제할 메시지를 찾을 수 없습니다.");
         }
 
-        // 추가한 부분:
         // 메시지에 연결된 첨부파일 삭제
         List<UUID> attachmentIds = message.getAttachmentIds();
 

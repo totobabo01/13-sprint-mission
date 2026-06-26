@@ -6,8 +6,10 @@ import com.sprint.mission.discodeit.dto.ChannelUpdateRequest;
 import com.sprint.mission.discodeit.dto.PrivateChannelCreateRequest;
 import com.sprint.mission.discodeit.entity.Channel;
 import com.sprint.mission.discodeit.entity.ChannelType;
+import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.ReadStatus;
 import com.sprint.mission.discodeit.entity.User;
+import com.sprint.mission.discodeit.repository.BinaryContentRepository;
 import com.sprint.mission.discodeit.repository.ChannelRepository;
 import com.sprint.mission.discodeit.repository.MessageRepository;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
@@ -23,8 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-// Channel 기능을 실제로 구현하는 Service 클래스
-// ChannelService 인터페이스의 기능들을 구현함
 @Service
 @RequiredArgsConstructor
 public class BasicChannelService implements ChannelService {
@@ -33,6 +33,7 @@ public class BasicChannelService implements ChannelService {
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final ReadStatusRepository readStatusRepository;
+    private final BinaryContentRepository binaryContentRepository;
 
     // PUBLIC 채널 생성
     @Override
@@ -78,6 +79,11 @@ public class BasicChannelService implements ChannelService {
 
             if (!uniqueParticipantUserIds.add(userId)) {
                 throw new IllegalArgumentException("PRIVATE 채널 참여자 id가 중복되었습니다.");
+            }
+
+            // 수정한 부분: 실제 존재하는 사용자 id인지 검증
+            if (!existsUserById(userId)) {
+                throw new IllegalArgumentException("PRIVATE 채널 참여자를 찾을 수 없습니다. userId=" + userId);
             }
         }
 
@@ -182,13 +188,35 @@ public class BasicChannelService implements ChannelService {
             throw new IllegalArgumentException("삭제할 채널을 찾을 수 없습니다. id=" + id);
         }
 
+        // 수정한 부분: 채널에 속한 메시지들의 첨부파일 BinaryContent를 먼저 삭제
+        deleteMessageAttachmentsByChannelId(id);
+
+        // 기존 흐름: 메시지, 읽음 상태, 채널 삭제
         messageRepository.deleteByChannelId(id);
         readStatusRepository.deleteByChannelId(id);
         channelRepository.deleteById(id);
     }
 
+    // 채널 메시지에 연결된 첨부파일 BinaryContent 삭제
+    private void deleteMessageAttachmentsByChannelId(UUID channelId) {
+        List<Message> messages = messageRepository.findAllByChannelId(channelId);
+
+        Set<UUID> attachmentIds = new HashSet<>();
+
+        for (Message message : messages) {
+            if (message.getAttachmentIds() == null || message.getAttachmentIds().isEmpty()) {
+                continue;
+            }
+
+            attachmentIds.addAll(message.getAttachmentIds());
+        }
+
+        for (UUID attachmentId : attachmentIds) {
+            binaryContentRepository.deleteById(attachmentId);
+        }
+    }
+
     // User 존재 여부 확인
-    // FileRepository의 existsById가 꼬이는 상황을 피하기 위해 findAll 기준으로 직접 비교
     private boolean existsUserById(UUID userId) {
         if (userId == null) {
             return false;
@@ -206,7 +234,6 @@ public class BasicChannelService implements ChannelService {
     }
 
     // Channel 단건 조회 보조 메서드
-    // channelRepository.findById가 못 찾는 상황을 피하기 위해 findAll 기준으로 직접 비교
     private Channel findChannelById(UUID channelId) {
         if (channelId == null) {
             return null;

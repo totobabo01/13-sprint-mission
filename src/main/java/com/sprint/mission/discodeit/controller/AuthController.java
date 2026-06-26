@@ -4,6 +4,7 @@ import com.sprint.mission.discodeit.dto.LoginRequest;
 import com.sprint.mission.discodeit.dto.UserResponse;
 import com.sprint.mission.discodeit.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,7 +16,9 @@ public class AuthController {
 
     // 로그인
     @PostMapping("/login")
-    public UserResponse login(@RequestBody LoginRequest request) {
-        return authService.login(request);
+    public ResponseEntity<UserResponse> login(@RequestBody LoginRequest request) {
+        UserResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
     }
 }

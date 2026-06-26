@@ -5,6 +5,7 @@ import com.sprint.mission.discodeit.dto.UserCreateRequest;
 import com.sprint.mission.discodeit.dto.UserResponse;
 import com.sprint.mission.discodeit.dto.UserUpdateRequest;
 import com.sprint.mission.discodeit.entity.BinaryContent;
+import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.User;
 import com.sprint.mission.discodeit.entity.UserStatus;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
@@ -17,7 +18,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -151,15 +154,47 @@ public class BasicUserService implements UserService {
             throw new IllegalArgumentException("삭제할 사용자를 찾을 수 없습니다.");
         }
 
+        // 사용자가 작성한 메시지의 첨부파일 BinaryContent 먼저 삭제
+        deleteMessageAttachmentsByAuthorId(id);
+
+        // 사용자가 작성한 메시지 삭제
         messageRepository.deleteByAuthorId(id);
+
+        // 사용자의 읽음 상태 삭제
         readStatusRepository.deleteByUserId(id);
 
+        // 사용자 프로필 이미지 삭제
         if (user.getProfileId() != null) {
             binaryContentRepository.deleteById(user.getProfileId());
         }
 
+        // 사용자 온라인 상태 삭제
         userStatusRepository.deleteByUserId(id);
+
+        // 사용자 삭제
         userRepository.deleteById(id);
+    }
+
+    private void deleteMessageAttachmentsByAuthorId(UUID authorId) {
+        List<Message> messages = messageRepository.findAll();
+
+        Set<UUID> attachmentIds = new HashSet<>();
+
+        for (Message message : messages) {
+            if (message.getAuthorId() == null || !message.getAuthorId().equals(authorId)) {
+                continue;
+            }
+
+            if (message.getAttachmentIds() == null || message.getAttachmentIds().isEmpty()) {
+                continue;
+            }
+
+            attachmentIds.addAll(message.getAttachmentIds());
+        }
+
+        for (UUID attachmentId : attachmentIds) {
+            binaryContentRepository.deleteById(attachmentId);
+        }
     }
 
     private UUID saveProfileImage(BinaryContentCreateRequest profileImage) {

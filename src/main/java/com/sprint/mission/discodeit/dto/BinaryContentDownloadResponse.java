@@ -2,37 +2,32 @@ package com.sprint.mission.discodeit.dto;
 
 import lombok.Getter;
 
-import java.time.Instant;
 import java.util.UUID;
 
 @Getter
-public class BinaryContentResponse {
+public class BinaryContentDownloadResponse {
 
     private UUID id;
-
-    private Instant createdAt;
-
-    private Instant updatedAt;
 
     private String fileName;
 
     private String contentType;
 
+    private byte[] bytes;
+
     private Long size;
 
-    public BinaryContentResponse(
+    public BinaryContentDownloadResponse(
             UUID id,
-            Instant createdAt,
-            Instant updatedAt,
             String fileName,
             String contentType,
+            byte[] bytes,
             Long size
     ) {
         this.id = id;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
         this.fileName = fileName;
         this.contentType = contentType;
+        this.bytes = bytes;
         this.size = size;
     }
 }
