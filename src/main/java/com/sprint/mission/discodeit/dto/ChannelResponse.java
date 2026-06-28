@@ -4,6 +4,7 @@ import com.sprint.mission.discodeit.entity.ChannelType;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,8 +40,16 @@ public class ChannelResponse {
     private Instant lastMessageAt;
 
     // PRIVATE 채널에 참여한 사용자 id 목록
-    // PUBLIC 채널에서는 null 또는 빈 리스트일 수 있음
+    // PUBLIC 채널에서는 빈 리스트로 응답
     private List<UUID> participantUserIds;
+
+    // 수정됨: 프론트엔드가 participantIds라는 이름을 기대할 수 있어서 추가
+    // participantUserIds와 같은 값을 담는 호환용 필드
+    private List<UUID> participantIds;
+
+    // 수정됨: 프론트엔드가 participants라는 이름을 기대할 수 있어서 추가
+    // participantUserIds와 같은 값을 담는 호환용 필드
+    private List<UUID> participants;
 
     // ChannelResponse 객체를 생성하는 생성자
     public ChannelResponse(
@@ -60,6 +69,16 @@ public class ChannelResponse {
         this.name = name;
         this.description = description;
         this.lastMessageAt = lastMessageAt;
-        this.participantUserIds = participantUserIds;
+
+        // 수정됨: null이면 프론트에서 .map() 호출 시 에러가 날 수 있으므로 빈 리스트로 보정
+        List<UUID> safeParticipantUserIds = participantUserIds == null
+                ? new ArrayList<>()
+                : participantUserIds;
+
+        this.participantUserIds = safeParticipantUserIds;
+
+        // 수정됨: 프론트 호환용 필드에도 같은 값 넣기
+        this.participantIds = safeParticipantUserIds;
+        this.participants = safeParticipantUserIds;
     }
 }

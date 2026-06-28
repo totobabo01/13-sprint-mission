@@ -39,6 +39,19 @@ public class BasicUserService implements UserService {
             throw new IllegalArgumentException("사용자 생성 요청은 비어 있을 수 없습니다.");
         }
 
+        // 수정됨: 필수값 검증 추가
+        if (isBlank(request.getUsername())) {
+            throw new IllegalArgumentException("사용자 이름은 비어 있을 수 없습니다.");
+        }
+
+        if (isBlank(request.getEmail())) {
+            throw new IllegalArgumentException("이메일은 비어 있을 수 없습니다.");
+        }
+
+        if (isBlank(request.getPassword())) {
+            throw new IllegalArgumentException("비밀번호는 비어 있을 수 없습니다.");
+        }
+
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("이미 사용 중인 사용자 이름입니다.");
         }
@@ -106,27 +119,46 @@ public class BasicUserService implements UserService {
             throw new IllegalArgumentException("수정할 사용자를 찾을 수 없습니다.");
         }
 
-        if (request.getUsername() != null
-                && !user.getUsername().equals(request.getUsername())
-                && userRepository.existsByUsername(request.getUsername())) {
+        /*
+         * 수정됨:
+         * 프론트 수정 요청에서는 username/email/password 중 일부만 들어올 수 있음.
+         * null 또는 빈 문자열이면 기존 값을 유지하도록 보정.
+         */
+        String updateUsername = isBlank(request.getUsername())
+                ? user.getUsername()
+                : request.getUsername();
+
+        String updateEmail = isBlank(request.getEmail())
+                ? user.getEmail()
+                : request.getEmail();
+
+        String updatePassword = isBlank(request.getPassword())
+                ? user.getPassword()
+                : request.getPassword();
+
+        // 수정됨: 보정된 username으로 중복 검사
+        if (!user.getUsername().equals(updateUsername)
+                && userRepository.existsByUsername(updateUsername)) {
             throw new IllegalArgumentException("이미 사용 중인 사용자 이름입니다.");
         }
 
-        if (request.getEmail() != null
-                && !user.getEmail().equals(request.getEmail())
-                && userRepository.existsByEmail(request.getEmail())) {
+        // 수정됨: 보정된 email로 중복 검사
+        if (!user.getEmail().equals(updateEmail)
+                && userRepository.existsByEmail(updateEmail)) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
+        // 수정됨: null이 아닌 최종 값으로 update 호출
         user.update(
-                request.getUsername(),
-                request.getEmail(),
-                request.getPassword()
+                updateUsername,
+                updateEmail,
+                updatePassword
         );
 
         /*
          * 1순위: profileImage가 들어오면 새 BinaryContent를 생성해서 연결
          * 2순위: profileId가 들어오면 이미 업로드된 BinaryContent id를 바로 연결
+         * 둘 다 없으면 기존 프로필 유지
          */
         if (request.getProfileImage() != null) {
             UUID oldProfileId = user.getProfileId();
@@ -214,12 +246,21 @@ public class BasicUserService implements UserService {
     }
 
     private UserResponse toResponse(User user) {
-        UserStatus userStatus = userStatusRepository.findByUserId(user.getId());
-
         boolean online = false;
 
-        if (userStatus != null) {
-            online = userStatus.isOnline();
+        /*
+         * 수정됨:
+         * UserStatus 저장 파일이 깨졌거나 없는 경우에도 사용자 목록 조회가 500으로 터지지 않도록 방어.
+         * 상태 조회 실패 시 online=false로 응답.
+         */
+        try {
+            UserStatus userStatus = userStatusRepository.findByUserId(user.getId());
+
+            if (userStatus != null) {
+                online = userStatus.isOnline();
+            }
+        } catch (RuntimeException e) {
+            online = false;
         }
 
         return new UserResponse(
@@ -231,5 +272,10 @@ public class BasicUserService implements UserService {
                 user.getProfileId(),
                 online
         );
+    }
+
+    // 수정됨: null 또는 공백 문자열 체크용 공통 메서드
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
