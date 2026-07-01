@@ -2,10 +2,10 @@ spring:
   application:
     name: discodeit
 
+server:
+  port: ${PORT:8080}
+
 discodeit:
   repository:
-    # file 또는 jcf 로 변경 가능
     type: file
-
-    # type이 file일 때 사용할 저장 폴더
-    file-directory: data
+  file-directory: data

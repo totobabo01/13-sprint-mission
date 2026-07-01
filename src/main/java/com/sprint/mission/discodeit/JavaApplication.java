@@ -136,7 +136,8 @@ public class JavaApplication {
                 channelRepository,
                 userRepository,
                 messageRepository,
-                readStatusRepository
+                readStatusRepository,
+                binaryContentRepository
         );
 
         MessageService messageService = new BasicMessageService(

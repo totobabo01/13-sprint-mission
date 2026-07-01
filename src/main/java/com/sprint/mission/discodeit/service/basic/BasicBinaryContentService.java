@@ -1,6 +1,7 @@
 package com.sprint.mission.discodeit.service.basic;
 
 import com.sprint.mission.discodeit.dto.BinaryContentCreateRequest;
+import com.sprint.mission.discodeit.dto.BinaryContentDownloadResponse;
 import com.sprint.mission.discodeit.dto.BinaryContentResponse;
 import com.sprint.mission.discodeit.entity.BinaryContent;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
@@ -39,17 +40,16 @@ public class BasicBinaryContentService implements BinaryContentService {
 
     @Override
     public BinaryContentResponse find(UUID id) {
-        if (id == null) {
-            throw new IllegalArgumentException("조회할 바이너리 콘텐츠 id는 null일 수 없습니다.");
-        }
-
-        BinaryContent binaryContent = binaryContentRepository.findById(id);
-
-        if (binaryContent == null) {
-            throw new IllegalArgumentException("조회할 바이너리 콘텐츠를 찾을 수 없습니다.");
-        }
+        BinaryContent binaryContent = findBinaryContentById(id);
 
         return toResponse(binaryContent);
+    }
+
+    @Override
+    public BinaryContentDownloadResponse findForDownload(UUID id) {
+        BinaryContent binaryContent = findBinaryContentById(id);
+
+        return toDownloadResponse(binaryContent);
     }
 
     @Override
@@ -82,6 +82,20 @@ public class BasicBinaryContentService implements BinaryContentService {
         binaryContentRepository.deleteById(id);
     }
 
+    private BinaryContent findBinaryContentById(UUID id) {
+        if (id == null) {
+            throw new IllegalArgumentException("조회할 바이너리 콘텐츠 id는 null일 수 없습니다.");
+        }
+
+        BinaryContent binaryContent = binaryContentRepository.findById(id);
+
+        if (binaryContent == null) {
+            throw new IllegalArgumentException("조회할 바이너리 콘텐츠를 찾을 수 없습니다.");
+        }
+
+        return binaryContent;
+    }
+
     private void validate(BinaryContentCreateRequest request) {
         if (request.getFileName() == null || request.getFileName().isBlank()) {
             throw new IllegalArgumentException("파일 이름은 비어 있을 수 없습니다.");
@@ -96,11 +110,22 @@ public class BasicBinaryContentService implements BinaryContentService {
         }
     }
 
+    // 목록/메타데이터 조회용 응답: bytes 제외
     private BinaryContentResponse toResponse(BinaryContent binaryContent) {
         return new BinaryContentResponse(
                 binaryContent.getId(),
                 binaryContent.getCreatedAt(),
                 binaryContent.getUpdatedAt(),
+                binaryContent.getFileName(),
+                binaryContent.getContentType(),
+                binaryContent.getSize()
+        );
+    }
+
+    // 실제 파일 다운로드용 응답: bytes 포함
+    private BinaryContentDownloadResponse toDownloadResponse(BinaryContent binaryContent) {
+        return new BinaryContentDownloadResponse(
+                binaryContent.getId(),
                 binaryContent.getFileName(),
                 binaryContent.getContentType(),
                 binaryContent.getBytes(),

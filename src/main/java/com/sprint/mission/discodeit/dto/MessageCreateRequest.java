@@ -1,5 +1,6 @@
 package com.sprint.mission.discodeit.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -13,16 +14,24 @@ import java.util.UUID;
 public class MessageCreateRequest {
 
     // 메시지 내용
+    // 수정됨: 프론트가 body, text, message 등으로 보낼 가능성 대비
+    @JsonAlias({"body", "text", "message"})
     private String content;
 
     // 메시지를 작성한 사용자 id
+    // 수정됨: 프론트가 userId, senderId, writerId 등으로 보낼 가능성 대비
+    @JsonAlias({"userId", "senderId", "writerId"})
     private UUID authorId;
 
     // 메시지가 작성될 채널 id
+    // 수정됨: 프론트가 roomId로 보낼 가능성 대비
+    @JsonAlias({"roomId"})
     private UUID channelId;
 
     // 첨부파일 생성 요청 목록
     // 첨부파일이 없으면 null 또는 빈 리스트일 수 있음
+    // 수정됨: 프론트가 attachmentFiles, files 등으로 보낼 가능성 대비
+    @JsonAlias({"attachmentFiles", "files"})
     private List<BinaryContentCreateRequest> attachments;
 
     // 메시지 생성 요청 객체를 생성하는 생성자
