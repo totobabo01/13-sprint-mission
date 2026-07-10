@@ -28,6 +28,8 @@ public class MessageMultipartMapper {
             List<MultipartFile> attachments,
             List<MultipartFile> files
     ) throws IOException {
+        List<MultipartFile> multipartFiles = mergeFiles(attachments, files);
+
         String content = firstNonBlank(
                 getFirst(formData, "content"),
                 getFirst(formData, "body"),
@@ -36,14 +38,14 @@ public class MessageMultipartMapper {
         );
 
         UUID authorId = firstNonNull(
-                getUuid(getFirst(formData, "authorId")),
-                getUuid(getFirst(formData, "userId")),
-                getUuid(getFirst(formData, "senderId"))
+                getUuidSafely(getFirst(formData, "authorId")),
+                getUuidSafely(getFirst(formData, "userId")),
+                getUuidSafely(getFirst(formData, "senderId"))
         );
 
         UUID channelId = firstNonNull(
-                getUuid(getFirst(formData, "channelId")),
-                getUuid(getFirst(formData, "roomId"))
+                getUuidSafely(getFirst(formData, "channelId")),
+                getUuidSafely(getFirst(formData, "roomId"))
         );
 
         String json = firstNonBlank(
@@ -68,20 +70,34 @@ public class MessageMultipartMapper {
 
             authorId = firstNonNull(
                     authorId,
-                    getUuid(getText(root, "authorId")),
-                    getUuid(getText(root, "userId")),
-                    getUuid(getText(root, "senderId"))
+                    getUuidSafely(getText(root, "authorId")),
+                    getUuidSafely(getText(root, "userId")),
+                    getUuidSafely(getText(root, "senderId")),
+                    getUuidSafely(getNestedText(root, "author", "id")),
+                    getUuidSafely(getNestedText(root, "user", "id")),
+                    getUuidSafely(getNestedText(root, "sender", "id"))
             );
 
             channelId = firstNonNull(
                     channelId,
-                    getUuid(getText(root, "channelId")),
-                    getUuid(getText(root, "roomId"))
+                    getUuidSafely(getText(root, "channelId")),
+                    getUuidSafely(getText(root, "roomId")),
+                    getUuidSafely(getNestedText(root, "channel", "id")),
+                    getUuidSafely(getNestedText(root, "room", "id"))
             );
         }
 
         List<BinaryContentCreateRequest> attachmentRequests =
-                toBinaryContentCreateRequests(firstNonEmptyList(attachments, files));
+                toBinaryContentCreateRequests(multipartFiles);
+
+        /*
+         * 파일만 보내는 경우 프론트가 content를 빈 문자열로 보낼 수 있다.
+         * 기존 Message 엔티티/서비스는 content blank를 허용하지 않으므로
+         * 첨부파일이 있으면 기본 문구를 넣어 400 오류를 방지한다.
+         */
+        if (isBlank(content) && !attachmentRequests.isEmpty()) {
+            content = "첨부파일";
+        }
 
         return new MessageCreateRequest(
                 content,
@@ -117,23 +133,25 @@ public class MessageMultipartMapper {
         return requests;
     }
 
-    private List<MultipartFile> firstNonEmptyList(
-            List<MultipartFile> first,
-            List<MultipartFile> second
+    private List<MultipartFile> mergeFiles(
+            List<MultipartFile> attachments,
+            List<MultipartFile> files
     ) {
-        if (first != null && !first.isEmpty()) {
-            return first;
+        List<MultipartFile> merged = new ArrayList<>();
+
+        if (attachments != null && !attachments.isEmpty()) {
+            merged.addAll(attachments);
         }
 
-        if (second != null && !second.isEmpty()) {
-            return second;
+        if (files != null && !files.isEmpty()) {
+            merged.addAll(files);
         }
 
-        return List.of();
+        return merged;
     }
 
     private String getFirst(MultiValueMap<String, String> formData, String key) {
-        if (formData == null) {
+        if (formData == null || key == null) {
             return null;
         }
 
@@ -154,12 +172,36 @@ public class MessageMultipartMapper {
         return node.asText();
     }
 
-    private UUID getUuid(String value) {
+    private String getNestedText(JsonNode root, String objectName, String fieldName) {
+        if (root == null || objectName == null || fieldName == null) {
+            return null;
+        }
+
+        JsonNode objectNode = root.get(objectName);
+
+        if (objectNode == null || objectNode.isNull()) {
+            return null;
+        }
+
+        JsonNode fieldNode = objectNode.get(fieldName);
+
+        if (fieldNode == null || fieldNode.isNull()) {
+            return null;
+        }
+
+        return fieldNode.asText();
+    }
+
+    private UUID getUuidSafely(String value) {
         if (isBlank(value)) {
             return null;
         }
 
-        return UUID.fromString(value);
+        try {
+            return UUID.fromString(value.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String firstNonBlank(String... values) {

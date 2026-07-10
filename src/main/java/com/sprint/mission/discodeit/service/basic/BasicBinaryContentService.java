@@ -33,9 +33,9 @@ public class BasicBinaryContentService implements BinaryContentService {
                 request.getBytes()
         );
 
-        binaryContentRepository.save(binaryContent);
+        BinaryContent savedBinaryContent = binaryContentRepository.save(binaryContent);
 
-        return toResponse(binaryContent);
+        return toResponse(savedBinaryContent);
     }
 
     @Override
@@ -76,7 +76,7 @@ public class BasicBinaryContentService implements BinaryContentService {
         }
 
         if (!binaryContentRepository.existsById(id)) {
-            throw new IllegalArgumentException("삭제할 바이너리 콘텐츠를 찾을 수 없습니다.");
+            throw new IllegalArgumentException("삭제할 바이너리 콘텐츠를 찾을 수 없습니다. id=" + id);
         }
 
         binaryContentRepository.deleteById(id);
@@ -87,13 +87,10 @@ public class BasicBinaryContentService implements BinaryContentService {
             throw new IllegalArgumentException("조회할 바이너리 콘텐츠 id는 null일 수 없습니다.");
         }
 
-        BinaryContent binaryContent = binaryContentRepository.findById(id);
-
-        if (binaryContent == null) {
-            throw new IllegalArgumentException("조회할 바이너리 콘텐츠를 찾을 수 없습니다.");
-        }
-
-        return binaryContent;
+        return binaryContentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "조회할 바이너리 콘텐츠를 찾을 수 없습니다. id=" + id
+                ));
     }
 
     private void validate(BinaryContentCreateRequest request) {

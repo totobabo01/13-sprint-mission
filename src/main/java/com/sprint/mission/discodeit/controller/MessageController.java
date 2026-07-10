@@ -14,7 +14,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -69,19 +71,53 @@ public class MessageController {
         return ResponseEntity.ok(response);
     }
 
-    // 특정 채널의 메시지 목록 조회
+    /*
+     * 특정 채널의 메시지 목록 조회
+     *
+     * 프론트 요청 예시:
+     * GET /api/messages?channelId=...&page=0&size=50&sort=createdAt,desc
+     *
+     * 프론트가 Page 응답 형태를 기대할 수 있으므로
+     * content, totalElements, totalPages, page, size 등을 같이 내려준다.
+     */
     @GetMapping
-    public ResponseEntity<List<MessageResponse>> findAllByChannelId(
-            @RequestParam UUID channelId
+    public ResponseEntity<Map<String, Object>> findAllByChannelId(
+            @RequestParam UUID channelId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
-        List<MessageResponse> responses = messageService.findAllByChannelId(channelId);
+        List<MessageResponse> allResponses = messageService.findAllByChannelId(channelId);
 
-        return ResponseEntity.ok(responses);
+        int safePage = Math.max(page, 0);
+        int safeSize = size <= 0 ? 50 : size;
+
+        int totalElements = allResponses.size();
+        int totalPages = totalElements == 0
+                ? 0
+                : (int) Math.ceil((double) totalElements / safeSize);
+
+        int fromIndex = Math.min(safePage * safeSize, totalElements);
+        int toIndex = Math.min(fromIndex + safeSize, totalElements);
+
+        List<MessageResponse> pageContent = allResponses.subList(fromIndex, toIndex);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", pageContent);
+        response.put("totalElements", totalElements);
+        response.put("totalPages", totalPages);
+        response.put("page", safePage);
+        response.put("size", safeSize);
+        response.put("number", safePage);
+        response.put("first", safePage == 0);
+        response.put("last", totalPages == 0 || safePage >= totalPages - 1);
+        response.put("hasNext", totalPages > 0 && safePage < totalPages - 1);
+        response.put("sort", sort);
+
+        return ResponseEntity.ok(response);
     }
 
     // 메시지 수정
-    // 기존: PATCH /api/messages
-    // 수정: PATCH /api/messages/{messageId}
     @PatchMapping("/{messageId}")
     public ResponseEntity<MessageResponse> update(
             @PathVariable UUID messageId,
