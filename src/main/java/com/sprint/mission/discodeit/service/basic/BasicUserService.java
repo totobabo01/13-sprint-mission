@@ -14,6 +14,7 @@ import com.sprint.mission.discodeit.repository.MessageRepository;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
 import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.UserStatusRepository;
+import com.sprint.mission.discodeit.service.BinaryContentService;
 import com.sprint.mission.discodeit.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class BasicUserService implements UserService {
 
     private final UserRepository userRepository;
     private final BinaryContentRepository binaryContentRepository;
+    private final BinaryContentService binaryContentService;
     private final UserStatusRepository userStatusRepository;
     private final MessageRepository messageRepository;
     private final ReadStatusRepository readStatusRepository;
@@ -137,8 +139,8 @@ public class BasicUserService implements UserService {
             UUID newProfileId = saveProfileImage(request.getProfileImage());
             user.updateProfileId(newProfileId);
 
-            if (oldProfileId != null && binaryContentRepository.existsById(oldProfileId)) {
-                binaryContentRepository.deleteById(oldProfileId);
+            if (oldProfileId != null) {
+                binaryContentService.delete(oldProfileId);
             }
         } else if (request.getProfileId() != null) {
             if (!binaryContentRepository.existsById(request.getProfileId())) {
@@ -163,8 +165,8 @@ public class BasicUserService implements UserService {
 
         readStatusRepository.deleteByUserId(id);
 
-        if (user.getProfileId() != null && binaryContentRepository.existsById(user.getProfileId())) {
-            binaryContentRepository.deleteById(user.getProfileId());
+        if (user.getProfileId() != null) {
+            binaryContentService.delete(user.getProfileId());
         }
 
         userStatusRepository.deleteByUserId(id);
@@ -219,8 +221,8 @@ public class BasicUserService implements UserService {
         }
 
         for (UUID attachmentId : attachmentIds) {
-            if (attachmentId != null && binaryContentRepository.existsById(attachmentId)) {
-                binaryContentRepository.deleteById(attachmentId);
+            if (attachmentId != null) {
+                binaryContentService.delete(attachmentId);
             }
         }
     }
@@ -230,15 +232,10 @@ public class BasicUserService implements UserService {
             return null;
         }
 
-        BinaryContent binaryContent = new BinaryContent(
-                profileImage.getFileName(),
-                profileImage.getContentType(),
-                profileImage.getBytes()
-        );
+        BinaryContentResponse savedProfile =
+                binaryContentService.create(profileImage);
 
-        BinaryContent savedBinaryContent = binaryContentRepository.save(binaryContent);
-
-        return savedBinaryContent.getId();
+        return savedProfile.getId();
     }
 
     private UserResponse toResponse(User user) {
@@ -262,15 +259,19 @@ public class BasicUserService implements UserService {
         }
 
         return binaryContentRepository.findById(profileId)
-                .map(binaryContent -> new BinaryContentResponse(
-                        binaryContent.getId(),
-                        binaryContent.getCreatedAt(),
-                        binaryContent.getUpdatedAt(),
-                        binaryContent.getFileName(),
-                        binaryContent.getContentType(),
-                        binaryContent.getSize()
-                ))
+                .map(this::toBinaryContentResponse)
                 .orElse(null);
+    }
+
+    private BinaryContentResponse toBinaryContentResponse(BinaryContent binaryContent) {
+        return new BinaryContentResponse(
+                binaryContent.getId(),
+                binaryContent.getCreatedAt(),
+                binaryContent.getUpdatedAt(),
+                binaryContent.getFileName(),
+                binaryContent.getContentType(),
+                binaryContent.getSize()
+        );
     }
 
     private boolean getOnlineStatus(UUID userId) {

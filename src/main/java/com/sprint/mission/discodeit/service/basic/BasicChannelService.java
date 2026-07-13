@@ -17,6 +17,7 @@ import com.sprint.mission.discodeit.repository.ChannelRepository;
 import com.sprint.mission.discodeit.repository.MessageRepository;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
 import com.sprint.mission.discodeit.repository.UserRepository;
+import com.sprint.mission.discodeit.service.BinaryContentService;
 import com.sprint.mission.discodeit.service.ChannelService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,16 +40,13 @@ public class BasicChannelService implements ChannelService {
     private final MessageRepository messageRepository;
     private final ReadStatusRepository readStatusRepository;
     private final BinaryContentRepository binaryContentRepository;
+    private final BinaryContentService binaryContentService;
 
     // PUBLIC 채널 생성
     @Override
     public ChannelResponse createPublicChannel(ChannelCreateRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("채널 생성 요청은 비어 있을 수 없습니다.");
-        }
-
-        if (request.getType() != ChannelType.PUBLIC) {
-            throw new IllegalArgumentException("PUBLIC 채널 생성 요청만 처리할 수 있습니다.");
         }
 
         Channel channel = new Channel(
@@ -69,7 +67,12 @@ public class BasicChannelService implements ChannelService {
             throw new IllegalArgumentException("PRIVATE 채널 생성 요청은 비어 있을 수 없습니다.");
         }
 
-        List<UUID> participantUserIds = request.getParticipantUserIds();
+        /*
+         * API 명세 v1.2 기준 필드는 participantIds.
+         * PrivateChannelCreateRequest에서 getParticipantIds() 호환 getter를 만들어뒀다면
+         * 이 메서드를 쓰는 게 가장 안전하다.
+         */
+        List<UUID> participantUserIds = request.getParticipantIds();
 
         if (participantUserIds == null || participantUserIds.isEmpty()) {
             throw new IllegalArgumentException("PRIVATE 채널 참여자 목록은 비어 있을 수 없습니다.");
@@ -83,7 +86,7 @@ public class BasicChannelService implements ChannelService {
             }
 
             if (!uniqueParticipantUserIds.add(userId)) {
-                throw new IllegalArgumentException("PRIVATE 채널 참여자 id가 중복되었습니다.");
+                throw new IllegalArgumentException("PRIVATE 채널 참여자 id가 중복되었습니다. userId=" + userId);
             }
 
             if (!userRepository.existsById(userId)) {
@@ -99,7 +102,7 @@ public class BasicChannelService implements ChannelService {
 
         Channel savedChannel = channelRepository.save(channel);
 
-        for (UUID userId : participantUserIds) {
+        for (UUID userId : uniqueParticipantUserIds) {
             ReadStatus readStatus = new ReadStatus(
                     userId,
                     savedChannel.getId()
@@ -124,15 +127,22 @@ public class BasicChannelService implements ChannelService {
     @Override
     @Transactional(readOnly = true)
     public List<ChannelResponse> findAllByUserId(UUID userId) {
-        if (userId == null || !userRepository.existsById(userId)) {
+        if (userId == null) {
+            throw new IllegalArgumentException("채널을 조회할 사용자 id는 필수입니다.");
+        }
+
+        if (!userRepository.existsById(userId)) {
             throw new IllegalArgumentException("채널을 조회할 사용자를 찾을 수 없습니다. userId=" + userId);
         }
 
         List<Channel> channels = channelRepository.findAll();
         List<ChannelResponse> responses = new ArrayList<>();
 
-        Set<UUID> participatedPrivateChannelIds =
-                new HashSet<>(readStatusRepository.findChannelIdsByUserId(userId));
+        List<UUID> channelIds = readStatusRepository.findChannelIdsByUserId(userId);
+
+        Set<UUID> participatedPrivateChannelIds = channelIds == null
+                ? new HashSet<>()
+                : new HashSet<>(channelIds);
 
         for (Channel channel : channels) {
             if (channel.getType() == ChannelType.PUBLIC) {
@@ -204,8 +214,8 @@ public class BasicChannelService implements ChannelService {
         }
 
         for (UUID attachmentId : attachmentIds) {
-            if (attachmentId != null && binaryContentRepository.existsById(attachmentId)) {
-                binaryContentRepository.deleteById(attachmentId);
+            if (attachmentId != null) {
+                binaryContentService.delete(attachmentId);
             }
         }
     }

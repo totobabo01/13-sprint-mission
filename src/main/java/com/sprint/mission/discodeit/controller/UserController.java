@@ -24,9 +24,12 @@ public class UserController {
     private final UserService userService;
     private final UserMultipartMapper userMultipartMapper;
 
-    // JSON 사용자 생성
-    // POST /api/users
-    // Content-Type: application/json
+    /*
+     * 기존 호환용 JSON 사용자 생성
+     *
+     * API 명세 v1.2 공식 요청은 multipart/form-data 이지만,
+     * 기존 Postman 테스트나 기존 코드 호환을 위해 유지한다.
+     */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserResponse> create(
             @RequestBody UserCreateRequest request
@@ -36,10 +39,16 @@ public class UserController {
         return created(response);
     }
 
-    // multipart/form-data 사용자 생성
-    // 제공 API 스펙 기준:
-    // - userCreateRequest: 사용자 생성 요청 JSON
-    // - profile: 프로필 이미지 파일
+    /*
+     * API 명세 v1.2 기준 사용자 생성
+     *
+     * POST /api/users
+     * Content-Type: multipart/form-data
+     *
+     * parts:
+     * - userCreateRequest
+     * - profile
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UserResponse> createWithMultipart(
             @RequestPart("userCreateRequest") UserCreateRequest userCreateRequest,
@@ -55,19 +64,26 @@ public class UserController {
         return created(response);
     }
 
-    // 사용자 단건 조회
-    // GET /api/users/{id}
-    // GET /api/user/{id}
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> read(@PathVariable UUID id) {
-        UserResponse response = userService.read(id);
+    /*
+     * 기존/프론트 호환용 사용자 단건 조회
+     *
+     * API 명세 v1.2에는 GET /api/users/{userId}가 명시되어 있지는 않지만,
+     * 기존 테스트 호환을 위해 유지한다.
+     */
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserResponse> read(
+            @PathVariable UUID userId
+    ) {
+        UserResponse response = userService.read(userId);
 
         return ResponseEntity.ok(response);
     }
 
-    // 사용자 목록 조회
-    // GET /api/users
-    // GET /api/user
+    /*
+     * API 명세 v1.2 기준
+     *
+     * GET /api/users
+     */
     @GetMapping
     public ResponseEntity<List<UserResponse>> readAll() {
         List<UserResponse> responses = userService.readAll();
@@ -75,9 +91,12 @@ public class UserController {
         return ResponseEntity.ok(responses);
     }
 
-    // 프론트 호환용 목록 조회
-    // GET /api/user/findAll
-    // GET /api/users/findAll
+    /*
+     * 기존 프론트 호환용 목록 조회
+     *
+     * GET /api/user/findAll
+     * GET /api/users/findAll
+     */
     @GetMapping("/findAll")
     public ResponseEntity<List<UserResponse>> findAll() {
         List<UserResponse> responses = userService.readAll();
@@ -85,16 +104,19 @@ public class UserController {
         return ResponseEntity.ok(responses);
     }
 
-    // JSON 사용자 수정
-    // PATCH /api/users/{id}
-    // Content-Type: application/json
-    @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    /*
+     * 기존 호환용 JSON 사용자 수정
+     *
+     * API 명세 v1.2 공식 요청은 multipart/form-data 이지만,
+     * 기존 Postman 테스트나 JSON 테스트 호환을 위해 유지한다.
+     */
+    @PatchMapping(value = "/{userId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserResponse> update(
-            @PathVariable UUID id,
+            @PathVariable UUID userId,
             @RequestBody UserUpdateRequest request
     ) {
         UserUpdateRequest fixedRequest = new UserUpdateRequest(
-                id,
+                userId,
                 request.getUsername(),
                 request.getEmail(),
                 request.getPassword(),
@@ -107,18 +129,24 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // multipart/form-data 사용자 수정
-    // 제공 API 스펙 기준:
-    // - userUpdateRequest: 사용자 수정 요청 JSON
-    // - profile: 프로필 이미지 파일
-    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /*
+     * API 명세 v1.2 기준 사용자 수정
+     *
+     * PATCH /api/users/{userId}
+     * Content-Type: multipart/form-data
+     *
+     * parts:
+     * - userUpdateRequest
+     * - profile
+     */
+    @PatchMapping(value = "/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UserResponse> updateWithMultipart(
-            @PathVariable UUID id,
+            @PathVariable UUID userId,
             @RequestPart("userUpdateRequest") UserUpdateRequest userUpdateRequest,
             @RequestPart(value = "profile", required = false) MultipartFile profile
     ) throws IOException {
         UserUpdateRequest request = userMultipartMapper.toUpdateRequest(
-                id,
+                userId,
                 userUpdateRequest,
                 profile
         );
@@ -128,12 +156,16 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // 사용자 삭제
-    // DELETE /api/users/{id}
-    // DELETE /api/user/{id}
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        userService.delete(id);
+    /*
+     * API 명세 v1.2 기준
+     *
+     * DELETE /api/users/{userId}
+     */
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID userId
+    ) {
+        userService.delete(userId);
 
         return ResponseEntity
                 .noContent()

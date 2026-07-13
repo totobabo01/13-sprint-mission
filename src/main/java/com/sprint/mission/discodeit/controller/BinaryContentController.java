@@ -21,10 +21,15 @@ public class BinaryContentController {
 
     private final BinaryContentService binaryContentService;
 
-    // BinaryContent 생성
+    /*
+     * 기존 호환용 BinaryContent 생성
+     *
+     * API 명세 v1.2에는 직접 생성 API가 명시되어 있지는 않지만,
+     * 기존 테스트/Postman 호환을 위해 유지한다.
+     */
     @PostMapping({
-            "/api/binary-contents",
-            "/api/binaryContents"
+            "/api/binaryContents",
+            "/api/binary-contents"
     })
     public ResponseEntity<BinaryContentResponse> create(
             @RequestBody BinaryContentCreateRequest request
@@ -39,35 +44,33 @@ public class BinaryContentController {
     }
 
     /*
-     * 파일 메타데이터 조회
+     * API 명세 v1.2 기준
      *
-     * 중요:
-     * /api/binaryContents/{id} 에서는 실제 이미지 byte[]가 아니라
-     * contentType, fileName, size 등이 담긴 JSON을 내려줘야 한다.
+     * GET /api/binaryContents/{binaryContentId}
      *
-     * 프론트가 이 응답에서 contentType을 읽고 startsWith("image/")를 호출한다.
+     * 실제 파일 byte[]가 아니라 파일 메타데이터 JSON을 반환한다.
      */
     @GetMapping({
-            "/api/binary-contents/{binaryContentId}",
-            "/api/binaryContents/{binaryContentId}"
+            "/api/binaryContents/{binaryContentId}",
+            "/api/binary-contents/{binaryContentId}"
     })
     public ResponseEntity<BinaryContentResponse> find(
             @PathVariable UUID binaryContentId
     ) {
-        BinaryContentResponse response = binaryContentService.find(binaryContentId);
+        BinaryContentResponse response =
+                binaryContentService.find(binaryContentId);
 
         return ResponseEntity.ok(response);
     }
 
     /*
-     * BinaryContent 여러 개 메타데이터 조회
+     * API 명세 v1.2 기준
      *
-     * GET /api/binary-contents?binaryContentIds=uuid1&binaryContentIds=uuid2
      * GET /api/binaryContents?binaryContentIds=uuid1&binaryContentIds=uuid2
      */
     @GetMapping({
-            "/api/binary-contents",
-            "/api/binaryContents"
+            "/api/binaryContents",
+            "/api/binary-contents"
     })
     public ResponseEntity<List<BinaryContentResponse>> findAllByIdIn(
             @RequestParam List<UUID> binaryContentIds
@@ -79,16 +82,15 @@ public class BinaryContentController {
     }
 
     /*
-     * 실제 이미지/파일 조회 경로
+     * API 명세 v1.2 기준
      *
-     * 이미지 표시나 파일 다운로드는 반드시 /download 경로에서 처리한다.
+     * GET /api/binaryContents/{binaryContentId}/download
      *
-     * GET /api/binary-contents/{id}/download
-     * GET /api/binaryContents/{id}/download
+     * 실제 이미지/파일 byte[]를 반환한다.
      */
     @GetMapping({
-            "/api/binary-contents/{binaryContentId}/download",
-            "/api/binaryContents/{binaryContentId}/download"
+            "/api/binaryContents/{binaryContentId}/download",
+            "/api/binary-contents/{binaryContentId}/download"
     })
     public ResponseEntity<byte[]> download(
             @PathVariable UUID binaryContentId
@@ -100,9 +102,9 @@ public class BinaryContentController {
     }
 
     /*
-     * 기존 심화 요구사항/구버전 호환용
+     * 구버전 프론트 호환용
      *
-     * 이 경로는 실제 파일 byte[] 반환용으로 유지
+     * GET /api/binaryContent/find?binaryContentId=...
      */
     @GetMapping("/api/binaryContent/find")
     public ResponseEntity<byte[]> findByRequestParam(
@@ -114,10 +116,15 @@ public class BinaryContentController {
         return toFileResponse(response);
     }
 
-    // BinaryContent 삭제
+    /*
+     * 기존 호환용 BinaryContent 삭제
+     *
+     * API 명세 v1.2에는 명시되어 있지는 않지만,
+     * 기존 기능 호환을 위해 유지한다.
+     */
     @DeleteMapping({
-            "/api/binary-contents/{binaryContentId}",
-            "/api/binaryContents/{binaryContentId}"
+            "/api/binaryContents/{binaryContentId}",
+            "/api/binary-contents/{binaryContentId}"
     })
     public ResponseEntity<Void> delete(
             @PathVariable UUID binaryContentId
@@ -132,18 +139,22 @@ public class BinaryContentController {
     private ResponseEntity<byte[]> toFileResponse(
             BinaryContentDownloadResponse response
     ) {
-        String contentType = response.getContentType();
+        final String contentType =
+                response.getContentType() == null || response.getContentType().isBlank()
+                        ? "application/octet-stream"
+                        : response.getContentType();
 
-        if (contentType == null || contentType.isBlank()) {
-            contentType = "application/octet-stream";
-        }
+        final String fileName =
+                response.getFileName() == null || response.getFileName().isBlank()
+                        ? "download"
+                        : response.getFileName();
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .contentLength(response.getSize())
                 .headers(headers -> headers.setContentDisposition(
                         ContentDisposition.inline()
-                                .filename(response.getFileName(), StandardCharsets.UTF_8)
+                                .filename(fileName, StandardCharsets.UTF_8)
                                 .build()
                 ))
                 .body(response.getBytes());

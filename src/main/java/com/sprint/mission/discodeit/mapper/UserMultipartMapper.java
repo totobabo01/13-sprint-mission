@@ -16,6 +16,10 @@ public class UserMultipartMapper {
             UserCreateRequest request,
             MultipartFile profile
     ) throws IOException {
+        if (request == null) {
+            throw new IllegalArgumentException("사용자 생성 요청은 비어 있을 수 없습니다.");
+        }
+
         BinaryContentCreateRequest profileImage =
                 toBinaryContentCreateRequest(profile);
 
@@ -32,6 +36,14 @@ public class UserMultipartMapper {
             UserUpdateRequest request,
             MultipartFile profile
     ) throws IOException {
+        if (id == null) {
+            throw new IllegalArgumentException("수정할 사용자 id는 필수입니다.");
+        }
+
+        if (request == null) {
+            throw new IllegalArgumentException("사용자 수정 요청은 비어 있을 수 없습니다.");
+        }
+
         BinaryContentCreateRequest profileImage =
                 toBinaryContentCreateRequest(profile);
 
@@ -52,9 +64,21 @@ public class UserMultipartMapper {
             return null;
         }
 
+        String fileName = file.getOriginalFilename();
+
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "unknown";
+        }
+
+        String contentType = file.getContentType();
+
+        if (contentType == null || contentType.isBlank()) {
+            contentType = "application/octet-stream";
+        }
+
         return new BinaryContentCreateRequest(
-                file.getOriginalFilename(),
-                file.getContentType(),
+                fileName,
+                contentType,
                 file.getBytes()
         );
     }

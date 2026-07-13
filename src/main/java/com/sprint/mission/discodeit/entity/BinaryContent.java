@@ -7,8 +7,6 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 
@@ -27,27 +25,37 @@ public class BinaryContent extends BaseEntity {
     @Column(name = "content_type", nullable = false, length = 100)
     private String contentType;
 
-    /*
-     * 실제 바이너리 데이터
-     *
-     * PostgreSQL의 BYTEA 컬럼과 매핑한다.
-     * @Lob을 사용하면 Hibernate가 Large Object 방식으로 처리하면서
-     * bytea 컬럼에 bigint 값을 넣으려는 오류가 발생할 수 있다.
-     */
-    @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(name = "bytes", nullable = false, columnDefinition = "bytea")
-    private byte[] bytes;
-
     // 파일 크기
     @Column(name = "size", nullable = false)
     private Long size;
 
+    /*
+     * 심화 요구사항 기준 생성자
+     *
+     * 실제 byte[]는 DB에 저장하지 않고,
+     * LocalBinaryContentStorage 같은 별도 저장소에 저장한다.
+     */
+    public BinaryContent(String fileName, String contentType, Long size) {
+        validate(fileName, contentType, size);
+
+        this.fileName = fileName;
+        this.contentType = contentType;
+        this.size = size;
+    }
+
+    /*
+     * 기존 코드 호환용 생성자
+     *
+     * 기존 서비스 코드에서 new BinaryContent(fileName, contentType, bytes)를
+     * 호출하고 있을 수 있으므로 일단 컴파일 호환을 위해 유지한다.
+     *
+     * 단, bytes 자체는 엔티티에 저장하지 않고 size 계산에만 사용한다.
+     */
     public BinaryContent(String fileName, String contentType, byte[] bytes) {
         validate(fileName, contentType, bytes);
 
         this.fileName = fileName;
         this.contentType = contentType;
-        this.bytes = bytes;
         this.size = (long) bytes.length;
     }
 
@@ -57,6 +65,20 @@ public class BinaryContent extends BaseEntity {
      */
     public Instant getUpdatedAt() {
         return null;
+    }
+
+    private void validate(String fileName, String contentType, Long size) {
+        if (fileName == null || fileName.isBlank()) {
+            throw new IllegalArgumentException("파일 이름은 비어 있을 수 없습니다.");
+        }
+
+        if (contentType == null || contentType.isBlank()) {
+            throw new IllegalArgumentException("파일 타입은 비어 있을 수 없습니다.");
+        }
+
+        if (size == null || size <= 0) {
+            throw new IllegalArgumentException("파일 크기는 0보다 커야 합니다.");
+        }
     }
 
     private void validate(String fileName, String contentType, byte[] bytes) {

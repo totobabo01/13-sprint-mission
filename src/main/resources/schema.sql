@@ -6,8 +6,7 @@ CREATE TABLE IF NOT EXISTS binary_contents (
     updated_at TIMESTAMPTZ,
     file_name VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
-    content_type VARCHAR(100) NOT NULL,
-    bytes BYTEA NOT NULL
+    content_type VARCHAR(100) NOT NULL
     );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -32,6 +31,7 @@ CREATE TABLE IF NOT EXISTS user_statuses (
     user_id UUID NOT NULL UNIQUE,
     online BOOLEAN NOT NULL DEFAULT true,
     last_active_at TIMESTAMPTZ NOT NULL,
+
     CONSTRAINT fk_user_statuses_user
     FOREIGN KEY (user_id)
     REFERENCES users (id)

@@ -3,6 +3,7 @@ package com.sprint.mission.discodeit.controller;
 import com.sprint.mission.discodeit.dto.MessageCreateRequest;
 import com.sprint.mission.discodeit.dto.MessageResponse;
 import com.sprint.mission.discodeit.dto.MessageUpdateRequest;
+import com.sprint.mission.discodeit.dto.response.PageResponse;
 import com.sprint.mission.discodeit.mapper.MessageMultipartMapper;
 import com.sprint.mission.discodeit.service.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -14,9 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.HashMap;
+import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -65,54 +65,46 @@ public class MessageController {
 
     // 메시지 단건 조회
     @GetMapping("/{messageId}")
-    public ResponseEntity<MessageResponse> read(@PathVariable UUID messageId) {
+    public ResponseEntity<MessageResponse> read(
+            @PathVariable UUID messageId
+    ) {
         MessageResponse response = messageService.read(messageId);
 
         return ResponseEntity.ok(response);
     }
 
     /*
-     * 특정 채널의 메시지 목록 조회
+     * 특정 채널의 메시지 목록 조회 - 커서 페이지네이션
      *
-     * 프론트 요청 예시:
-     * GET /api/messages?channelId=...&page=0&size=50&sort=createdAt,desc
+     * 첫 조회:
+     * GET /api/messages?channelId=...&size=50
      *
-     * 프론트가 Page 응답 형태를 기대할 수 있으므로
-     * content, totalElements, totalPages, page, size 등을 같이 내려준다.
+     * 다음 조회:
+     * GET /api/messages?channelId=...&cursor=2026-07-10T00:32:57.459100Z&size=50
+     *
+     * 호환용:
+     * after 파라미터도 cursor처럼 처리한다.
+     * page, sort 파라미터가 같이 와도 무시하고 cursor 방식으로 처리한다.
      */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> findAllByChannelId(
+    public ResponseEntity<PageResponse<MessageResponse>> findAllByChannelId(
             @RequestParam UUID channelId,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Instant cursor,
+            @RequestParam(required = false) Instant after,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String sort
+
+            // 기존 프론트/요청 호환용. 커서 페이지네이션에서는 사용하지 않음.
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) String sort
     ) {
-        List<MessageResponse> allResponses = messageService.findAllByChannelId(channelId);
+        Instant actualCursor = cursor != null ? cursor : after;
 
-        int safePage = Math.max(page, 0);
-        int safeSize = size <= 0 ? 50 : size;
-
-        int totalElements = allResponses.size();
-        int totalPages = totalElements == 0
-                ? 0
-                : (int) Math.ceil((double) totalElements / safeSize);
-
-        int fromIndex = Math.min(safePage * safeSize, totalElements);
-        int toIndex = Math.min(fromIndex + safeSize, totalElements);
-
-        List<MessageResponse> pageContent = allResponses.subList(fromIndex, toIndex);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("content", pageContent);
-        response.put("totalElements", totalElements);
-        response.put("totalPages", totalPages);
-        response.put("page", safePage);
-        response.put("size", safeSize);
-        response.put("number", safePage);
-        response.put("first", safePage == 0);
-        response.put("last", totalPages == 0 || safePage >= totalPages - 1);
-        response.put("hasNext", totalPages > 0 && safePage < totalPages - 1);
-        response.put("sort", sort);
+        PageResponse<MessageResponse> response =
+                messageService.findAllByChannelId(
+                        channelId,
+                        actualCursor,
+                        size
+                );
 
         return ResponseEntity.ok(response);
     }
@@ -135,7 +127,9 @@ public class MessageController {
 
     // 메시지 삭제
     @DeleteMapping("/{messageId}")
-    public ResponseEntity<Void> delete(@PathVariable UUID messageId) {
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID messageId
+    ) {
         messageService.delete(messageId);
 
         return ResponseEntity
