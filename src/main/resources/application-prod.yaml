@@ -1,0 +1,23 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  sql:
+    init:
+      mode: never
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: info
+    com.sprint.mission.discodeit: info
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
