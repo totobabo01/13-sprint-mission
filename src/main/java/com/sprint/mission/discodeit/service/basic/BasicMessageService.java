@@ -11,6 +11,10 @@ import com.sprint.mission.discodeit.entity.BinaryContent;
 import com.sprint.mission.discodeit.entity.Channel;
 import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.User;
+import com.sprint.mission.discodeit.exception.channel.ChannelNotFoundException;
+import com.sprint.mission.discodeit.exception.message.InvalidMessageException;
+import com.sprint.mission.discodeit.exception.message.MessageNotFoundException;
+import com.sprint.mission.discodeit.exception.user.UserNotFoundException;
 import com.sprint.mission.discodeit.mapper.PageResponseMapper;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
 import com.sprint.mission.discodeit.repository.ChannelRepository;
@@ -49,7 +53,7 @@ public class BasicMessageService implements MessageService {
 
         if (request == null) {
             log.warn("메시지 생성 요청이 비어 있습니다.");
-            throw new IllegalArgumentException("메시지 생성 요청은 비어 있을 수 없습니다.");
+            throw new InvalidMessageException("메시지 생성 요청은 비어 있을 수 없습니다.");
         }
 
         String content = request.getContent();
@@ -61,12 +65,12 @@ public class BasicMessageService implements MessageService {
 
         if (authorId == null) {
             log.warn("메시지 생성에 실패했습니다. authorId가 null입니다.");
-            throw new IllegalArgumentException("메시지 작성자 id는 필수입니다.");
+            throw new InvalidMessageException("메시지 작성자 id는 필수입니다.");
         }
 
         if (channelId == null) {
             log.warn("메시지 생성에 실패했습니다. channelId가 null입니다.");
-            throw new IllegalArgumentException("메시지를 작성할 채널 id는 필수입니다.");
+            throw new InvalidMessageException("메시지를 작성할 채널 id는 필수입니다.");
         }
 
         log.debug(
@@ -84,9 +88,7 @@ public class BasicMessageService implements MessageService {
                             authorId
                     );
 
-                    return new IllegalArgumentException(
-                            "메시지를 작성할 사용자를 찾을 수 없습니다. authorId=" + authorId
-                    );
+                    return new UserNotFoundException(authorId);
                 });
 
         Channel channel = channelRepository.findById(channelId)
@@ -96,9 +98,7 @@ public class BasicMessageService implements MessageService {
                             channelId
                     );
 
-                    return new IllegalArgumentException(
-                            "메시지를 작성할 채널을 찾을 수 없습니다. channelId=" + channelId
-                    );
+                    return new ChannelNotFoundException(channelId);
                 });
 
         try {
@@ -288,12 +288,12 @@ public class BasicMessageService implements MessageService {
 
         if (request == null) {
             log.warn("메시지 수정 요청이 비어 있습니다.");
-            throw new IllegalArgumentException("메시지 수정 요청은 비어 있을 수 없습니다.");
+            throw new InvalidMessageException("메시지 수정 요청은 비어 있을 수 없습니다.");
         }
 
         if (request.getId() == null) {
             log.warn("메시지 수정에 실패했습니다. messageId가 null입니다.");
-            throw new IllegalArgumentException("수정할 메시지 id는 필수입니다.");
+            throw new InvalidMessageException("수정할 메시지 id는 필수입니다.");
         }
 
         validateContent(request.getContent());
@@ -379,7 +379,7 @@ public class BasicMessageService implements MessageService {
     private Message findMessageById(UUID id) {
         if (id == null) {
             log.warn("메시지 조회에 실패했습니다. messageId가 null입니다.");
-            throw new IllegalArgumentException("메시지 id는 필수입니다.");
+            throw new InvalidMessageException("메시지 id는 필수입니다.");
         }
 
         return messageRepository.findById(id)
@@ -389,16 +389,14 @@ public class BasicMessageService implements MessageService {
                             id
                     );
 
-                    return new IllegalArgumentException(
-                            "메시지를 찾을 수 없습니다. id=" + id
-                    );
+                    return new MessageNotFoundException(id);
                 });
     }
 
     private void validateChannelId(UUID channelId) {
         if (channelId == null) {
             log.warn("메시지 조회에 실패했습니다. channelId가 null입니다.");
-            throw new IllegalArgumentException(
+            throw new InvalidMessageException(
                     "메시지를 조회할 채널 id는 필수입니다."
             );
         }
@@ -409,17 +407,14 @@ public class BasicMessageService implements MessageService {
                     channelId
             );
 
-            throw new IllegalArgumentException(
-                    "메시지를 조회할 채널을 찾을 수 없습니다. channelId="
-                            + channelId
-            );
+            throw new ChannelNotFoundException(channelId);
         }
     }
 
     private void validateContent(String content) {
         if (content == null || content.isBlank()) {
             log.warn("메시지 내용 검증에 실패했습니다. 내용이 비어 있습니다.");
-            throw new IllegalArgumentException(
+            throw new InvalidMessageException(
                     "메시지 내용은 비어 있을 수 없습니다."
             );
         }
@@ -431,7 +426,7 @@ public class BasicMessageService implements MessageService {
 
             log.warn("첨부파일 검증에 실패했습니다. 파일 이름이 비어 있습니다.");
 
-            throw new IllegalArgumentException(
+            throw new InvalidMessageException(
                     "첨부파일 이름은 비어 있을 수 없습니다."
             );
         }
@@ -444,7 +439,7 @@ public class BasicMessageService implements MessageService {
                     request.getFileName()
             );
 
-            throw new IllegalArgumentException(
+            throw new InvalidMessageException(
                     "첨부파일 데이터는 비어 있을 수 없습니다."
             );
         }

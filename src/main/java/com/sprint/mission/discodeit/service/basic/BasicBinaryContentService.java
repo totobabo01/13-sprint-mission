@@ -4,6 +4,8 @@ import com.sprint.mission.discodeit.dto.BinaryContentCreateRequest;
 import com.sprint.mission.discodeit.dto.BinaryContentDownloadResponse;
 import com.sprint.mission.discodeit.dto.BinaryContentResponse;
 import com.sprint.mission.discodeit.entity.BinaryContent;
+import com.sprint.mission.discodeit.exception.binarycontent.BinaryContentNotFoundException;
+import com.sprint.mission.discodeit.exception.binarycontent.BinaryContentStorageException;
 import com.sprint.mission.discodeit.repository.BinaryContentRepository;
 import com.sprint.mission.discodeit.service.BinaryContentService;
 import com.sprint.mission.discodeit.storage.BinaryContentStorage;
@@ -100,7 +102,7 @@ public class BasicBinaryContentService implements BinaryContentService {
                     e
             );
 
-            // 파일 저장 실패 시 이미 생성된 DB 메타데이터를 정리합니다.
+            // 파일 저장에 실패한 경우 이미 생성된 DB 메타데이터를 정리한다.
             if (savedBinaryContent != null
                     && savedBinaryContent.getId() != null) {
 
@@ -120,10 +122,17 @@ public class BasicBinaryContentService implements BinaryContentService {
                             savedBinaryContent.getId(),
                             cleanupException
                     );
+
+                    // 원래 업로드 실패 예외에 정리 실패 예외를 함께 기록한다.
+                    e.addSuppressed(cleanupException);
                 }
             }
 
-            throw e;
+            throw new BinaryContentStorageException(
+                    binaryContentId,
+                    "파일 업로드",
+                    e
+            );
         }
     }
 
@@ -183,7 +192,12 @@ public class BasicBinaryContentService implements BinaryContentService {
                     binaryContent.getFileName(),
                     e
             );
-            throw e;
+
+            throw new BinaryContentStorageException(
+                    binaryContent.getId(),
+                    "파일 다운로드",
+                    e
+            );
         }
     }
 
@@ -240,10 +254,7 @@ public class BasicBinaryContentService implements BinaryContentService {
                                     id
                             );
 
-                            return new IllegalArgumentException(
-                                    "삭제할 바이너리 콘텐츠를 찾을 수 없습니다. id="
-                                            + id
-                            );
+                            return new BinaryContentNotFoundException(id);
                         });
 
         try {
@@ -272,7 +283,12 @@ public class BasicBinaryContentService implements BinaryContentService {
                     binaryContent.getFileName(),
                     e
             );
-            throw e;
+
+            throw new BinaryContentStorageException(
+                    binaryContent.getId(),
+                    "파일 삭제",
+                    e
+            );
         }
     }
 
@@ -291,10 +307,7 @@ public class BasicBinaryContentService implements BinaryContentService {
                             id
                     );
 
-                    return new IllegalArgumentException(
-                            "조회할 바이너리 콘텐츠를 찾을 수 없습니다. id="
-                                    + id
-                    );
+                    return new BinaryContentNotFoundException(id);
                 });
     }
 
