@@ -2,10 +2,12 @@ package com.sprint.mission.discodeit.service.basic;
 
 import com.sprint.mission.discodeit.dto.UserStatusResponse;
 import com.sprint.mission.discodeit.entity.UserStatus;
+import com.sprint.mission.discodeit.exception.user.UserNotFoundException;
 import com.sprint.mission.discodeit.repository.UserRepository;
 import com.sprint.mission.discodeit.repository.UserStatusRepository;
 import com.sprint.mission.discodeit.service.UserStatusService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 // UserStatus 기능을 실제로 구현하는 Service 클래스
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -121,11 +124,20 @@ public class BasicUserStatusService implements UserStatusService {
 
     private void validateUserExists(UUID userId) {
         if (userId == null) {
-            throw new IllegalArgumentException("사용자 id는 null일 수 없습니다.");
+            log.warn("사용자 상태 처리에 실패했습니다. userId가 null입니다.");
+
+            throw new IllegalArgumentException(
+                    "사용자 id는 null일 수 없습니다."
+            );
         }
 
         if (!userRepository.existsById(userId)) {
-            throw new IllegalArgumentException("사용자를 찾을 수 없습니다.");
+            log.warn(
+                    "사용자 상태 처리에 실패했습니다. 사용자를 찾을 수 없습니다. userId={}",
+                    userId
+            );
+
+            throw new UserNotFoundException(userId);
         }
     }
 

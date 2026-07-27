@@ -12,6 +12,9 @@ import com.sprint.mission.discodeit.entity.ChannelType;
 import com.sprint.mission.discodeit.entity.Message;
 import com.sprint.mission.discodeit.entity.ReadStatus;
 import com.sprint.mission.discodeit.entity.User;
+import com.sprint.mission.discodeit.exception.channel.ChannelNotFoundException;
+import com.sprint.mission.discodeit.exception.channel.PrivateChannelUpdateException;
+import com.sprint.mission.discodeit.exception.user.UserNotFoundException;
 import com.sprint.mission.discodeit.repository.ChannelRepository;
 import com.sprint.mission.discodeit.repository.MessageRepository;
 import com.sprint.mission.discodeit.repository.ReadStatusRepository;
@@ -132,9 +135,8 @@ public class BasicChannelService implements ChannelService {
                         "비공개 채널 참여자를 찾을 수 없습니다. userId={}",
                         userId
                 );
-                throw new IllegalArgumentException(
-                        "PRIVATE 채널 참여자를 찾을 수 없습니다. userId=" + userId
-                );
+
+                throw new UserNotFoundException(userId);
             }
         }
 
@@ -155,9 +157,7 @@ public class BasicChannelService implements ChannelService {
                                     userId
                             );
 
-                            return new IllegalArgumentException(
-                                    "PRIVATE 채널 참여자를 찾을 수 없습니다. userId=" + userId
-                            );
+                            return new UserNotFoundException(userId);
                         });
 
                 ReadStatus readStatus = new ReadStatus(
@@ -203,7 +203,12 @@ public class BasicChannelService implements ChannelService {
         }
 
         if (!userRepository.existsById(userId)) {
-            throw new IllegalArgumentException("채널을 조회할 사용자를 찾을 수 없습니다. userId=" + userId);
+            log.warn(
+                    "채널을 조회할 사용자를 찾을 수 없습니다. userId={}",
+                    userId
+            );
+
+            throw new UserNotFoundException(userId);
         }
 
         List<Channel> channels = channelRepository.findAll();
@@ -254,7 +259,10 @@ public class BasicChannelService implements ChannelService {
                     "비공개 채널 수정 요청을 거부합니다. channelId={}",
                     request.getId()
             );
-            throw new IllegalArgumentException("PRIVATE 채널은 수정할 수 없습니다.");
+
+            throw new PrivateChannelUpdateException(
+                    request.getId()
+            );
         }
 
         try {
@@ -380,8 +388,13 @@ public class BasicChannelService implements ChannelService {
 
     private Channel findChannelById(UUID channelId) {
         if (channelId == null) {
-            log.warn("채널 조회에 실패했습니다. channelId가 null입니다.");
-            throw new IllegalArgumentException("채널 id는 필수입니다.");
+            log.warn(
+                    "채널 조회에 실패했습니다. channelId가 null입니다."
+            );
+
+            throw new IllegalArgumentException(
+                    "채널 id는 필수입니다."
+            );
         }
 
         return channelRepository.findById(channelId)
@@ -391,9 +404,7 @@ public class BasicChannelService implements ChannelService {
                             channelId
                     );
 
-                    return new IllegalArgumentException(
-                            "채널을 찾을 수 없습니다. id=" + channelId
-                    );
+                    return new ChannelNotFoundException(channelId);
                 });
     }
 

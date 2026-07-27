@@ -14,8 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
@@ -200,6 +202,97 @@ public class GlobalExceptionHandler {
     }
 
     /*
+     * 경로 변수 또는 요청 파라미터의 타입 변환에 실패한 경우
+     *
+     * 예:
+     * UUID가 필요한 자리에 abc 입력
+     * 숫자가 필요한 자리에 문자열 입력
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        Map<String, Object> details = new LinkedHashMap<>();
+
+        details.put(
+                "parameter",
+                exception.getName()
+        );
+
+        details.put(
+                "value",
+                exception.getValue()
+        );
+
+        if (exception.getRequiredType() != null) {
+            details.put(
+                    "requiredType",
+                    exception.getRequiredType().getSimpleName()
+            );
+        }
+
+        log.warn(
+                "요청 값의 타입이 올바르지 않습니다. parameter={}, value={}, requiredType={}",
+                exception.getName(),
+                exception.getValue(),
+                exception.getRequiredType()
+        );
+
+        ErrorResponse response = ErrorResponse.of(
+                ErrorCode.INVALID_REQUEST,
+                "요청 값의 형식이 올바르지 않습니다.",
+                details,
+                exception.getClass(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    /*
+     * 필수 요청 파라미터가 누락된 경우
+     *
+     * 예:
+     * GET /api/channels 요청에서 필수 userId 누락
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException exception
+    ) {
+        Map<String, Object> details = new LinkedHashMap<>();
+
+        details.put(
+                "parameter",
+                exception.getParameterName()
+        );
+
+        details.put(
+                "type",
+                exception.getParameterType()
+        );
+
+        log.warn(
+                "필수 요청 파라미터가 누락되었습니다. parameter={}, type={}",
+                exception.getParameterName(),
+                exception.getParameterType()
+        );
+
+        ErrorResponse response = ErrorResponse.of(
+                ErrorCode.INVALID_REQUEST,
+                "필수 요청 파라미터가 누락되었습니다.",
+                details,
+                exception.getClass(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    /*
      * 아직 커스텀 예외로 교체하지 않은
      * 기존 IllegalArgumentException 처리
      */
@@ -212,9 +305,19 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
 
+        String message;
+
+        if (exception.getMessage() == null
+                || exception.getMessage().isBlank()) {
+
+            message = ErrorCode.INVALID_REQUEST.getMessage();
+        } else {
+            message = exception.getMessage();
+        }
+
         ErrorResponse response = ErrorResponse.of(
                 ErrorCode.INVALID_REQUEST,
-                exception.getMessage(),
+                message,
                 Map.of(),
                 exception.getClass(),
                 HttpStatus.BAD_REQUEST.value()
