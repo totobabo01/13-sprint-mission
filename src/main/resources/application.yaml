@@ -1,30 +1,76 @@
-spring:
-  application:
-    name: discodeit
+  spring:
+    application:
+      name: discodeit
 
-  profiles:
-    active: dev
+    profiles:
+      active: dev
 
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
+    jpa:
       hibernate:
-        format_sql: true
-        highlight_sql: true
-    open-in-view: false
+        ddl-auto: none
+      properties:
+        hibernate:
+          format_sql: true
+          highlight_sql: true
+      open-in-view: false
 
-logging:
-  level:
-    root: info
+    servlet:
+      multipart:
+        max-file-size: 10MB
+        max-request-size: 30MB
 
-discodeit:
-  repository:
-    type: jpa
+  logging:
+    level:
+      root: info
 
-  storage:
-    type: local
-    local:
-      root-path: data/binaryContents
+  discodeit:
+    repository:
+      type: jpa
 
-  file-directory: data
+    storage:
+      type: local
+      local:
+        root-path: data/binaryContents
+
+    file-directory: data
+
+  management:
+    endpoints:
+      web:
+        exposure:
+          include:
+            - health
+            - info
+            - metrics
+            - loggers
+
+    endpoint:
+      health:
+        show-details: always
+
+    info:
+      env:
+        enabled: true
+
+  info:
+    application:
+      name: Discodeit
+      version: 1.7.0
+      java-version: 17
+      spring-boot-version: 3.5.14
+
+    datasource:
+      url: ${spring.datasource.url:설정되지 않음}
+      driver-class-name: ${spring.datasource.driver-class-name:org.postgresql.Driver}
+
+    jpa:
+      ddl-auto: ${spring.jpa.hibernate.ddl-auto:none}
+
+    storage:
+      type: ${discodeit.storage.type:local}
+      path: ${discodeit.storage.local.root-path:data/binaryContents}
+
+    multipart:
+      max-file-size: ${spring.servlet.multipart.max-file-size:10MB}
+      max-request-size: ${spring.servlet.multipart.max-request-size:30MB}
+
