@@ -4,6 +4,7 @@ import com.sprint.mission.discodeit.dto.BinaryContentCreateRequest;
 import com.sprint.mission.discodeit.dto.BinaryContentDownloadResponse;
 import com.sprint.mission.discodeit.dto.BinaryContentResponse;
 import com.sprint.mission.discodeit.service.BinaryContentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ContentDisposition;
@@ -34,15 +35,13 @@ public class BinaryContentController {
             "/api/binary-contents"
     })
     public ResponseEntity<BinaryContentResponse> create(
-            @RequestBody BinaryContentCreateRequest request
+            @Valid @RequestBody BinaryContentCreateRequest request
     ) {
         log.info(
                 "BinaryContent 생성 요청을 받았습니다. fileName={}, contentType={}, size={}",
-                request == null ? null : request.getFileName(),
-                request == null ? null : request.getContentType(),
-                request == null || request.getBytes() == null
-                        ? 0
-                        : request.getBytes().length
+                request.getFileName(),
+                request.getContentType(),
+                request.getBytes().length
         );
 
         BinaryContentResponse response =

@@ -94,10 +94,19 @@ public class BasicUserStatusService implements UserStatusService {
         validateUserExists(userId);
 
         if (lastActiveAt == null) {
-            lastActiveAt = Instant.now();
+            throw new IllegalArgumentException(
+                    "마지막 활동 시각은 필수입니다."
+            );
         }
 
-        UserStatus userStatus = userStatusRepository.findByUserId(userId);
+        if (lastActiveAt.isAfter(Instant.now())) {
+            throw new IllegalArgumentException(
+                    "마지막 활동 시각은 현재 또는 과거여야 합니다."
+            );
+        }
+
+        UserStatus userStatus =
+                userStatusRepository.findByUserId(userId);
 
         if (userStatus == null) {
             userStatus = new UserStatus(userId);
@@ -105,7 +114,8 @@ public class BasicUserStatusService implements UserStatusService {
 
         userStatus.updateLastActiveAt(lastActiveAt);
 
-        UserStatus savedUserStatus = userStatusRepository.save(userStatus);
+        UserStatus savedUserStatus =
+                userStatusRepository.save(userStatus);
 
         return toResponse(savedUserStatus);
     }

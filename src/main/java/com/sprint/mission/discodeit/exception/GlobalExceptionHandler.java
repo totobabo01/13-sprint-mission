@@ -8,6 +8,8 @@ import com.sprint.mission.discodeit.exception.message.InvalidMessageException;
 import com.sprint.mission.discodeit.exception.message.MessageNotFoundException;
 import com.sprint.mission.discodeit.exception.user.UserAlreadyExistsException;
 import com.sprint.mission.discodeit.exception.user.UserNotFoundException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -137,11 +139,13 @@ public class GlobalExceptionHandler {
     }
 
     /*
-     * @Valid 검증 실패 처리
+     * @Valid가 적용된 @RequestBody 또는 @RequestPart DTO의
+     * 검증 실패 처리
      *
      * 예:
      * username 필수 값 누락
      * email 형식 오류
+     * 메시지 내용 길이 초과
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
@@ -158,8 +162,76 @@ public class GlobalExceptionHandler {
             );
         }
 
+        /*
+         * 클래스 단위 검증에서 발생한 오류도 처리한다.
+         *
+         * 현재 @AssertTrue를 getter에 적용한 경우에는 일반적으로
+         * FieldError로 처리되지만, 다른 클래스 단위 제약 조건이
+         * 추가될 경우를 대비해 ObjectError도 함께 처리한다.
+         */
+        exception.getBindingResult()
+                .getGlobalErrors()
+                .forEach(error ->
+                        details.put(
+                                error.getObjectName(),
+                                error.getDefaultMessage()
+                        )
+                );
+
         log.warn(
                 "요청 값 검증에 실패했습니다. details={}",
+                details
+        );
+
+        ErrorResponse response = ErrorResponse.of(
+                ErrorCode.METHOD_ARGUMENT_NOT_VALID,
+                ErrorCode.METHOD_ARGUMENT_NOT_VALID.getMessage(),
+                details,
+                exception.getClass(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    /*
+     * Validator를 직접 호출했을 때 발생하는 검증 실패 처리
+     *
+     * MessageController의 multipart 요청처럼
+     * 메서드 내부에서 DTO를 직접 생성한 뒤
+     * validator.validate(request)를 호출하는 경우 발생한다.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(
+            ConstraintViolationException exception
+    ) {
+        Map<String, Object> details = new LinkedHashMap<>();
+
+        for (ConstraintViolation<?> violation
+                : exception.getConstraintViolations()) {
+
+            String propertyPath = violation
+                    .getPropertyPath()
+                    .toString();
+
+            /*
+             * propertyPath가 비어 있는 클래스 단위 검증이라면
+             * validation이라는 공통 키를 사용한다.
+             */
+            String fieldName = propertyPath.isBlank()
+                    ? "validation"
+                    : propertyPath;
+
+            details.put(
+                    fieldName,
+                    violation.getMessage()
+            );
+        }
+
+        log.warn(
+                "직접 생성된 요청 객체의 검증에 실패했습니다. details={}",
                 details
         );
 
