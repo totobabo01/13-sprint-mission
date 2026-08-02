@@ -337,7 +337,11 @@ class MessageApiIntegrationTest {
             );
 
             createMessage("메시지 1", userId, channelId);
+            waitForDifferentCreatedAt();
+
             createMessage("메시지 2", userId, channelId);
+            waitForDifferentCreatedAt();
+
             createMessage("메시지 3", userId, channelId);
 
             // when & then
@@ -387,31 +391,65 @@ class MessageApiIntegrationTest {
                             .param("channelId", channelId)
                             .param("size", "2"))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content")
+                            .isArray())
+                    .andExpect(jsonPath("$.content.length()")
+                            .value(2))
                     .andExpect(jsonPath("$.hasNext")
                             .value(true))
+                    .andExpect(jsonPath("$.nextCursor")
+                            .isNotEmpty())
                     .andReturn();
 
             JsonNode firstPageBody = objectMapper.readTree(
                     firstPage.getResponse().getContentAsString()
             );
 
-            String nextCursor =
-                    firstPageBody.get("nextCursor").asText();
+            String nextCursor = firstPageBody
+                    .get("nextCursor")
+                    .asText();
 
-            // when & then
-            mockMvc.perform(get("/api/messages")
+            String firstPageFirstId = firstPageBody
+                    .get("content")
+                    .get(0)
+                    .get("id")
+                    .asText();
+
+            String firstPageSecondId = firstPageBody
+                    .get("content")
+                    .get(1)
+                    .get("id")
+                    .asText();
+
+            // when
+            MvcResult nextPage = mockMvc.perform(get("/api/messages")
                             .param("channelId", channelId)
                             .param("cursor", nextCursor)
                             .param("size", "2"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content")
                             .isArray())
-                    .andExpect(jsonPath("$.content.length()")
-                            .value(1))
-                    .andExpect(jsonPath("$.content[0].content")
-                            .value("첫 번째 메시지"))
-                    .andExpect(jsonPath("$.hasNext")
-                            .value(false));
+                    .andExpect(jsonPath("$.size")
+                            .value(2))
+                    .andReturn();
+
+            JsonNode nextPageBody = objectMapper.readTree(
+                    nextPage.getResponse().getContentAsString()
+            );
+
+            JsonNode nextPageContent = nextPageBody.get("content");
+
+            // then
+            assertThat(nextPageContent).isNotNull();
+            assertThat(nextPageContent.isArray()).isTrue();
+
+            for (JsonNode message : nextPageContent) {
+                String messageId = message.get("id").asText();
+
+                assertThat(messageId)
+                        .isNotEqualTo(firstPageFirstId)
+                        .isNotEqualTo(firstPageSecondId);
+            }
         }
 
         @Test
@@ -429,30 +467,64 @@ class MessageApiIntegrationTest {
             );
 
             createMessage("첫 번째 메시지", userId, channelId);
+            waitForDifferentCreatedAt();
+
             createMessage("두 번째 메시지", userId, channelId);
+            waitForDifferentCreatedAt();
+
             createMessage("세 번째 메시지", userId, channelId);
 
             MvcResult firstPage = mockMvc.perform(get("/api/messages")
                             .param("channelId", channelId)
                             .param("size", "2"))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.hasNext")
+                            .value(true))
+                    .andExpect(jsonPath("$.nextCursor")
+                            .isNotEmpty())
                     .andReturn();
 
-            String nextCursor = objectMapper
-                    .readTree(firstPage.getResponse().getContentAsString())
+            JsonNode firstPageBody = objectMapper.readTree(
+                    firstPage.getResponse().getContentAsString()
+            );
+
+            String nextCursor = firstPageBody
                     .get("nextCursor")
                     .asText();
 
-            // when & then
-            mockMvc.perform(get("/api/messages")
+            MvcResult cursorResult = mockMvc.perform(get("/api/messages")
+                            .param("channelId", channelId)
+                            .param("cursor", nextCursor)
+                            .param("size", "2"))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            MvcResult afterResult = mockMvc.perform(get("/api/messages")
                             .param("channelId", channelId)
                             .param("after", nextCursor)
                             .param("size", "2"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()")
-                            .value(1))
-                    .andExpect(jsonPath("$.content[0].content")
-                            .value("첫 번째 메시지"));
+                    .andReturn();
+
+            JsonNode cursorBody = objectMapper.readTree(
+                    cursorResult.getResponse().getContentAsString()
+            );
+
+            JsonNode afterBody = objectMapper.readTree(
+                    afterResult.getResponse().getContentAsString()
+            );
+
+            assertThat(afterBody.get("content"))
+                    .isEqualTo(cursorBody.get("content"));
+
+            assertThat(afterBody.get("size"))
+                    .isEqualTo(cursorBody.get("size"));
+
+            assertThat(afterBody.get("hasNext"))
+                    .isEqualTo(cursorBody.get("hasNext"));
+
+            assertThat(afterBody.get("nextCursor"))
+                    .isEqualTo(cursorBody.get("nextCursor"));
         }
 
         @Test
@@ -746,5 +818,10 @@ class MessageApiIntegrationTest {
                 .readTree(result.getResponse().getContentAsString())
                 .get("id")
                 .asText();
+    }
+
+    private void waitForDifferentCreatedAt()
+            throws InterruptedException {
+        Thread.sleep(100);
     }
 }
