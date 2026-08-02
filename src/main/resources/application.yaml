@@ -1,76 +1,81 @@
-  spring:
-    application:
-      name: discodeit
+spring:
+  application:
+    name: discodeit
 
-    profiles:
-      active: dev
+  profiles:
+    active: dev
 
-    jpa:
+  boot:
+    admin:
+      client:
+        instance:
+          name: discodeit
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
       hibernate:
-        ddl-auto: none
-      properties:
-        hibernate:
-          format_sql: true
-          highlight_sql: true
-      open-in-view: false
+        format_sql: true
+        highlight_sql: true
+    open-in-view: false
 
-    servlet:
-      multipart:
-        max-file-size: 10MB
-        max-request-size: 30MB
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
 
-  logging:
-    level:
-      root: info
+logging:
+  level:
+    root: info
 
-  discodeit:
-    repository:
-      type: jpa
+discodeit:
+  repository:
+    type: jpa
 
-    storage:
-      type: local
-      local:
-        root-path: data/binaryContents
+  storage:
+    type: local
+    local:
+      root-path: data/binaryContents
 
-    file-directory: data
+  file-directory: data
 
-  management:
-    endpoints:
-      web:
-        exposure:
-          include:
-            - health
-            - info
-            - metrics
-            - loggers
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+          - metrics
+          - loggers
 
-    endpoint:
-      health:
-        show-details: always
-
-    info:
-      env:
-        enabled: true
+  endpoint:
+    health:
+      show-details: always
 
   info:
-    application:
-      name: Discodeit
-      version: 1.7.0
-      java-version: 17
-      spring-boot-version: 3.5.14
+    env:
+      enabled: true
 
-    datasource:
-      url: ${spring.datasource.url:설정되지 않음}
-      driver-class-name: ${spring.datasource.driver-class-name:org.postgresql.Driver}
+info:
+  application:
+    name: Discodeit
+    version: 1.7.0
+    java-version: 17
+    spring-boot-version: 3.5.14
 
-    jpa:
-      ddl-auto: ${spring.jpa.hibernate.ddl-auto:none}
+  datasource:
+    url: ${spring.datasource.url:설정되지 않음}
+    driver-class-name: ${spring.datasource.driver-class-name:org.postgresql.Driver}
 
-    storage:
-      type: ${discodeit.storage.type:local}
-      path: ${discodeit.storage.local.root-path:data/binaryContents}
+  jpa:
+    ddl-auto: ${spring.jpa.hibernate.ddl-auto:none}
 
-    multipart:
-      max-file-size: ${spring.servlet.multipart.max-file-size:10MB}
-      max-request-size: ${spring.servlet.multipart.max-request-size:30MB}
+  storage:
+    type: ${discodeit.storage.type:local}
+    path: ${discodeit.storage.local.root-path:data/binaryContents}
 
+  multipart:
+    max-file-size: ${spring.servlet.multipart.max-file-size:10MB}
+    max-request-size: ${spring.servlet.multipart.max-request-size:30MB}
