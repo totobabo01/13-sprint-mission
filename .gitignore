@@ -35,3 +35,14 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables ###
+.env
+.env.*
+!.env.example
+
+### Runtime Data ###
+.logs/
+data/
+admin/build/
+admin/.gradle/

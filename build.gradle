@@ -1,3 +1,4 @@
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.14'
@@ -6,7 +7,7 @@ plugins {
 }
 
 group = 'com.sprint.mission'
-version = '1.7.0'
+version = '1.2-M8'
 
 java {
 	toolchain {
@@ -46,8 +47,10 @@ dependencies {
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
@@ -55,13 +58,13 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 
-	// 테스트가 끝난 뒤 JaCoCo 리포트를 자동 생성
+	// 테스트가 끝난 뒤 JaCoCo 리포트 자동 생성
 	finalizedBy tasks.named('jacocoTestReport')
 }
 
 jacocoTestReport {
 	// 리포트 생성 전에 테스트 실행
-	dependsOn test
+	dependsOn tasks.named('test')
 
 	reports {
 		xml.required = true
@@ -69,3 +72,4 @@ jacocoTestReport {
 		csv.required = false
 	}
 }
+
