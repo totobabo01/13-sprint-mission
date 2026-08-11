@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS user_statuses (
     updated_at TIMESTAMPTZ,
     user_id UUID NOT NULL UNIQUE,
     online BOOLEAN NOT NULL DEFAULT true,
-    last_seen_at TIMESTAMPTZ NOT NULL,
+    last_active_at TIMESTAMP WITH TIME ZONE NOT NULL,
 
     CONSTRAINT fk_user_statuses_user
     FOREIGN KEY (user_id)

@@ -38,9 +38,15 @@ public class MessageMultipartRequest {
     private String roomId;
 
     /*
-     * JSON 문자열 파트 이름 호환
+     * 프론트에서 messageCreateRequest를
+     * application/json Blob 형태의 multipart 파트로 전달하므로
+     * MultipartFile로 받는다.
      */
-    private String messageCreateRequest;
+    private MultipartFile messageCreateRequest;
+
+    /*
+     * 기존 문자열 기반 요청 이름 호환
+     */
     private String request;
     private String messageRequest;
 

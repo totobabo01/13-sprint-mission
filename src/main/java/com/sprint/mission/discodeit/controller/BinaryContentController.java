@@ -4,15 +4,13 @@ import com.sprint.mission.discodeit.dto.BinaryContentCreateRequest;
 import com.sprint.mission.discodeit.dto.BinaryContentDownloadResponse;
 import com.sprint.mission.discodeit.dto.BinaryContentResponse;
 import com.sprint.mission.discodeit.service.BinaryContentService;
+import com.sprint.mission.discodeit.storage.BinaryContentStorage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +20,7 @@ import java.util.UUID;
 public class BinaryContentController {
 
     private final BinaryContentService binaryContentService;
+    private final BinaryContentStorage binaryContentStorage;
 
     /*
      * 기존 테스트 및 Postman 호환을 위한 BinaryContent 생성 API
@@ -37,7 +36,11 @@ public class BinaryContentController {
                 binaryContentService.create(request);
 
         return ResponseEntity
-                .created(URI.create("/api/binaryContents/" + response.getId()))
+                .created(
+                        URI.create(
+                                "/api/binaryContents/" + response.getId()
+                        )
+                )
                 .body(response);
     }
 
@@ -78,53 +81,43 @@ public class BinaryContentController {
 
     /*
      * 실제 파일 데이터 다운로드
+     *
+     * local 저장소:
+     * - 파일 바이트를 직접 반환한다.
+     *
+     * s3 저장소:
+     * - Presigned URL을 생성한 뒤 해당 URL로 리다이렉트한다.
      */
     @GetMapping({
             "/binaryContents/{binaryContentId}/download",
             "/binary-contents/{binaryContentId}/download"
     })
-    public ResponseEntity<byte[]> download(
+    public ResponseEntity<?> download(
             @PathVariable UUID binaryContentId
     ) {
         BinaryContentDownloadResponse response =
                 binaryContentService.findForDownload(binaryContentId);
 
-        return ResponseEntity.ok()
-                .contentType(resolveMediaType(response.getContentType()))
-                .contentLength(response.getSize())
-                .headers(headers -> headers.setContentDisposition(
-                        ContentDisposition.inline()
-                                .filename(
-                                        resolveFileName(response.getFileName()),
-                                        StandardCharsets.UTF_8
-                                )
-                                .build()
-                ))
-                .body(response.getBytes());
+        return binaryContentStorage.download(
+                binaryContentId,
+                response
+        );
     }
 
     /*
      * 구버전 프론트 호환용 파일 다운로드 API
      */
     @GetMapping("/binaryContent/find")
-    public ResponseEntity<byte[]> findByRequestParam(
+    public ResponseEntity<?> findByRequestParam(
             @RequestParam UUID binaryContentId
     ) {
         BinaryContentDownloadResponse response =
                 binaryContentService.findForDownload(binaryContentId);
 
-        return ResponseEntity.ok()
-                .contentType(resolveMediaType(response.getContentType()))
-                .contentLength(response.getSize())
-                .headers(headers -> headers.setContentDisposition(
-                        ContentDisposition.inline()
-                                .filename(
-                                        resolveFileName(response.getFileName()),
-                                        StandardCharsets.UTF_8
-                                )
-                                .build()
-                ))
-                .body(response.getBytes());
+        return binaryContentStorage.download(
+                binaryContentId,
+                response
+        );
     }
 
     /*
@@ -140,24 +133,5 @@ public class BinaryContentController {
         binaryContentService.delete(binaryContentId);
 
         return ResponseEntity.noContent().build();
-    }
-
-    /*
-     * 파일 응답을 만드는 데 필요한 HTTP 표현 계층 처리
-     */
-    private MediaType resolveMediaType(String contentType) {
-        if (contentType == null || contentType.isBlank()) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-
-        return MediaType.parseMediaType(contentType);
-    }
-
-    private String resolveFileName(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return "download";
-        }
-
-        return fileName;
     }
 }
