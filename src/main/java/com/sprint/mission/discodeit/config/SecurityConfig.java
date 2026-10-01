@@ -3,8 +3,9 @@ package com.sprint.mission.discodeit.config;
 import com.sprint.mission.discodeit.security.CustomAccessDeniedHandler;
 import com.sprint.mission.discodeit.security.CustomAuthenticationEntryPoint;
 import com.sprint.mission.discodeit.security.DiscodeitUserDetailsService;
+import com.sprint.mission.discodeit.security.JwtAuthenticationFilter;
+import com.sprint.mission.discodeit.security.JwtLoginSuccessHandler;
 import com.sprint.mission.discodeit.security.LoginFailureHandler;
-import com.sprint.mission.discodeit.security.LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,11 +17,13 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -30,7 +33,7 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final LoginSuccessHandler loginSuccessHandler;
+    private final JwtLoginSuccessHandler jwtLoginSuccessHandler;
     private final LoginFailureHandler loginFailureHandler;
 
     private final CustomAuthenticationEntryPoint
@@ -42,8 +45,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(
             HttpSecurity http,
-            SessionRegistry sessionRegistry,
-            DiscodeitUserDetailsService discodeitUserDetailsService
+            DiscodeitUserDetailsService discodeitUserDetailsService,
+            JwtAuthenticationFilter jwtAuthenticationFilter
     ) throws Exception {
 
         http
@@ -58,6 +61,17 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
+                        // 정적 리소스
+                        // 로그인 여부와 관계없이 프론트 화면 및 리소스 접근 허용
+                        .requestMatchers(
+                                "/",
+                                "/*.html",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+                                "/favicon.ico"
+                        ).permitAll()
 
                         // CSRF 토큰 발급
                         .requestMatchers(
@@ -106,34 +120,25 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * 동일 계정의 활성 세션은 최대 1개만 유지한다.
+                 * JWT 기반 인증을 사용하므로
+                 * 서버에서 인증 세션을 생성하거나 유지하지 않는다.
                  *
-                 * maximumSessions(1)
-                 * -> 사용자당 활성 세션 최대 1개
-                 *
-                 * maxSessionsPreventsLogin(false)
-                 * -> 새로운 로그인을 막지 않고
-                 *    기존 세션을 만료시킨다.
-                 *
-                 * Remember-Me로 새로운 인증 세션이 생성되는 경우에도
-                 * 기존 세션과 충돌하지 않도록 한다.
+                 * 요청마다 Access Token을 통해 인증한다.
                  */
-                .sessionManagement(management -> management
-                        .sessionConcurrency(concurrency -> concurrency
-                                .maximumSessions(1)
-                                .maxSessionsPreventsLogin(false)
-                                .sessionRegistry(sessionRegistry)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
                         )
                 )
 
                 /*
-                 * 로그인 유지(Remember-Me)
+                 * 기존 Sprint 9의 Remember-Me 설정.
                  *
-                 * 로그인 요청:
-                 * remember-me=true
+                 * 현재 요구사항에서 제거하라는 내용이 없으므로
+                 * 일단 유지한다.
                  *
-                 * JSESSIONID가 없어져도 remember-me 쿠키가 존재하면
-                 * 사용자를 다시 인증한다.
+                 * 이후 Refresh Token 요구사항에 따라
+                 * 제거 여부를 결정할 수 있다.
                  */
                 .rememberMe(remember -> remember
                         .key(
@@ -153,12 +158,18 @@ public class SecurityConfig {
                         )
                 )
 
+                /*
+                 * 기존 formLogin 인증 방식은 유지한다.
+                 *
+                 * 로그인 성공 시 JwtLoginSuccessHandler에서
+                 * Access Token과 Refresh Token을 발급한다.
+                 */
                 .formLogin(login -> login
                         .loginProcessingUrl(
                                 "/api/auth/login"
                         )
                         .successHandler(
-                                loginSuccessHandler
+                                jwtLoginSuccessHandler
                         )
                         .failureHandler(
                                 loginFailureHandler
@@ -174,17 +185,36 @@ public class SecurityConfig {
                                         HttpStatus.NO_CONTENT
                                 )
                         )
+                )
+
+                /*
+                 * Authorization: Bearer {AccessToken}
+                 * 요청을 처리하는 JWT 인증 필터.
+                 *
+                 * UsernamePasswordAuthenticationFilter보다 먼저 실행해서
+                 * SecurityContext에 인증 정보를 등록한다.
+                 */
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
                 );
 
         return http.build();
     }
 
+    /*
+     * 기존 코드에서 SessionRegistry를 사용하는 부분이
+     * 남아 있을 수 있으므로 우선 Bean은 유지한다.
+     */
     @Bean
     public SessionRegistry sessionRegistry() {
 
         return new SessionRegistryImpl();
     }
 
+    /*
+     * 기존 세션 관련 코드와의 호환성을 위해 우선 유지한다.
+     */
     @Bean
     public HttpSessionEventPublisher
     httpSessionEventPublisher() {

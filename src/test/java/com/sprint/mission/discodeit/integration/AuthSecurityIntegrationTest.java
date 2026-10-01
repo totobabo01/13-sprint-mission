@@ -14,18 +14,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,6 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("인증 및 Spring Security 통합 테스트")
 class AuthSecurityIntegrationTest {
 
+    private static final String AUTHORIZATION = "Authorization";
+    private static final String BEARER = "Bearer ";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -44,9 +47,6 @@ class AuthSecurityIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private SessionRegistry sessionRegistry;
 
     @Nested
     @DisplayName("CSRF 토큰")
@@ -57,6 +57,7 @@ class AuthSecurityIntegrationTest {
         void should_ReturnCsrfTokenCookie_when_CsrfTokenIsRequested()
                 throws Exception {
 
+            // when
             MvcResult result =
                     mockMvc.perform(
                                     get("/api/auth/csrf-token")
@@ -67,6 +68,7 @@ class AuthSecurityIntegrationTest {
                             )
                             .andReturn();
 
+            // then
             Cookie csrfCookie =
                     result.getResponse()
                             .getCookie("XSRF-TOKEN");
@@ -87,10 +89,11 @@ class AuthSecurityIntegrationTest {
     class LoginTest {
 
         @Test
-        @DisplayName("올바른 사용자 이름과 비밀번호로 로그인하면 200과 사용자 정보를 반환한다")
-        void should_ReturnUserResponse_when_CredentialsAreValid()
+        @DisplayName("올바른 사용자 이름과 비밀번호로 로그인하면 200과 JWT 정보를 반환한다")
+        void should_ReturnJwtDto_when_CredentialsAreValid()
                 throws Exception {
 
+            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
@@ -100,48 +103,72 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            mockMvc.perform(
-                            post("/api/auth/login")
-                                    .cookie(
-                                            csrfData.cookie()
-                                    )
-                                    .header(
-                                            "X-XSRF-TOKEN",
-                                            csrfData.token()
-                                    )
-                                    .contentType(
-                                            MediaType.APPLICATION_FORM_URLENCODED
-                                    )
-                                    .param(
-                                            "username",
-                                            "securityUser"
-                                    )
-                                    .param(
-                                            "password",
-                                            "password"
-                                    )
-                    )
-                    .andExpect(
-                            status().isOk()
-                    )
-                    .andExpect(
-                            jsonPath("$.username")
-                                    .value("securityUser")
-                    )
-                    .andExpect(
-                            jsonPath("$.email")
-                                    .value(
-                                            "security-user@test.com"
-                                    )
-                    )
-                    .andExpect(
-                            jsonPath("$.id")
-                                    .isNotEmpty()
-                    )
-                    .andExpect(
-                            jsonPath("$.role")
-                                    .value("USER")
-                    );
+            // when & then
+            MvcResult result =
+                    mockMvc.perform(
+                                    post("/api/auth/login")
+                                            .cookie(
+                                                    csrfData.cookie()
+                                            )
+                                            .header(
+                                                    "X-XSRF-TOKEN",
+                                                    csrfData.token()
+                                            )
+                                            .contentType(
+                                                    MediaType.APPLICATION_FORM_URLENCODED
+                                            )
+                                            .param(
+                                                    "username",
+                                                    "securityUser"
+                                            )
+                                            .param(
+                                                    "password",
+                                                    "password"
+                                            )
+                            )
+                            .andExpect(
+                                    status().isOk()
+                            )
+                            .andExpect(
+                                    jsonPath("$.userDto.username")
+                                            .value("securityUser")
+                            )
+                            .andExpect(
+                                    jsonPath("$.userDto.email")
+                                            .value(
+                                                    "security-user@test.com"
+                                            )
+                            )
+                            .andExpect(
+                                    jsonPath("$.userDto.id")
+                                            .isNotEmpty()
+                            )
+                            .andExpect(
+                                    jsonPath("$.userDto.role")
+                                            .value("USER")
+                            )
+                            .andExpect(
+                                    jsonPath("$.accessToken")
+                                            .isNotEmpty()
+                            )
+                            .andExpect(
+                                    cookie()
+                                            .exists("REFRESH_TOKEN")
+                            )
+                            .andReturn();
+
+            Cookie refreshTokenCookie =
+                    result.getResponse()
+                            .getCookie("REFRESH_TOKEN");
+
+            assertThat(refreshTokenCookie)
+                    .isNotNull();
+
+            assertThat(refreshTokenCookie.getValue())
+                    .isNotBlank();
+
+            assertThat(refreshTokenCookie.isHttpOnly())
+                    .isTrue();
         }
 
         @Test
@@ -149,6 +176,7 @@ class AuthSecurityIntegrationTest {
         void should_ReturnUnauthorized_when_PasswordIsIncorrect()
                 throws Exception {
 
+            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
@@ -158,6 +186,7 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
+            // when & then
             mockMvc.perform(
                             post("/api/auth/login")
                                     .cookie(
@@ -209,12 +238,14 @@ class AuthSecurityIntegrationTest {
         void should_ReturnForbidden_when_CsrfTokenIsMissing()
                 throws Exception {
 
+            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
                     "password"
             );
 
+            // when & then
             mockMvc.perform(
                             post("/api/auth/login")
                                     .contentType(
@@ -235,8 +266,8 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("동일한 계정으로 다시 로그인하면 기존 세션이 만료되고 새 세션이 생성된다")
-        void should_ExpirePreviousSession_when_SameUserLogsInAgain()
+        @DisplayName("동일한 계정으로 여러 번 로그인해도 세션을 생성하지 않고 각각 JWT를 발급한다")
+        void should_IssueJwtWithoutSession_when_SameUserLogsInAgain()
                 throws Exception {
 
             // given
@@ -246,267 +277,31 @@ class AuthSecurityIntegrationTest {
                     "password"
             );
 
-            CsrfData firstCsrfData =
-                    getCsrfData();
-
-            // 첫 번째 로그인
-            MvcResult firstLoginResult =
-                    mockMvc.perform(
-                                    post("/api/auth/login")
-                                            .cookie(
-                                                    firstCsrfData.cookie()
-                                            )
-                                            .header(
-                                                    "X-XSRF-TOKEN",
-                                                    firstCsrfData.token()
-                                            )
-                                            .contentType(
-                                                    MediaType.APPLICATION_FORM_URLENCODED
-                                            )
-                                            .param(
-                                                    "username",
-                                                    "concurrentUser"
-                                            )
-                                            .param(
-                                                    "password",
-                                                    "password"
-                                            )
-                            )
-                            .andExpect(
-                                    status().isOk()
-                            )
-                            .andReturn();
-
-            MockHttpSession firstSession =
-                    (MockHttpSession) firstLoginResult
-                            .getRequest()
-                            .getSession(false);
-
-            assertThat(firstSession)
-                    .isNotNull();
-
-            SessionInformation firstSessionBeforeSecondLogin =
-                    sessionRegistry.getSessionInformation(
-                            firstSession.getId()
+            // when
+            LoginData firstLogin =
+                    login(
+                            "concurrentUser",
+                            "password"
                     );
 
-            assertThat(firstSessionBeforeSecondLogin)
-                    .isNotNull();
-
-            assertThat(
-                    firstSessionBeforeSecondLogin.isExpired()
-            )
-                    .isFalse();
-
-            CsrfData secondCsrfData =
-                    getCsrfData();
-
-            // when - 같은 계정으로 두 번째 로그인
-            MvcResult secondLoginResult =
-                    mockMvc.perform(
-                                    post("/api/auth/login")
-                                            .cookie(
-                                                    secondCsrfData.cookie()
-                                            )
-                                            .header(
-                                                    "X-XSRF-TOKEN",
-                                                    secondCsrfData.token()
-                                            )
-                                            .contentType(
-                                                    MediaType.APPLICATION_FORM_URLENCODED
-                                            )
-                                            .param(
-                                                    "username",
-                                                    "concurrentUser"
-                                            )
-                                            .param(
-                                                    "password",
-                                                    "password"
-                                            )
-                            )
-                            .andExpect(
-                                    status().isOk()
-                            )
-                            .andReturn();
-
-            // then - 첫 번째 세션은 만료되어야 한다.
-            SessionInformation firstSessionAfterSecondLogin =
-                    sessionRegistry.getSessionInformation(
-                            firstSession.getId()
+            LoginData secondLogin =
+                    login(
+                            "concurrentUser",
+                            "password"
                     );
 
-            assertThat(firstSessionAfterSecondLogin)
-                    .isNotNull();
-
-            assertThat(
-                    firstSessionAfterSecondLogin.isExpired()
-            )
-                    .isTrue();
-
-            // 두 번째 로그인으로 새 세션은 정상 생성되어야 한다.
-            MockHttpSession secondSession =
-                    (MockHttpSession) secondLoginResult
-                            .getRequest()
-                            .getSession(false);
-
-            assertThat(secondSession)
-                    .isNotNull();
-
-            assertThat(secondSession.getId())
-                    .isNotEqualTo(
-                            firstSession.getId()
-                    );
-
-            SessionInformation secondSessionInformation =
-                    sessionRegistry.getSessionInformation(
-                            secondSession.getId()
-                    );
-
-            assertThat(secondSessionInformation)
-                    .isNotNull();
-
-            assertThat(
-                    secondSessionInformation.isExpired()
-            )
-                    .isFalse();
-        }
-
-        @Test
-        @DisplayName("remember-me가 true이면 세션 없이도 Remember-Me 쿠키로 인증 상태가 유지된다")
-        void should_AuthenticateWithRememberMe_when_SessionIsMissing()
-                throws Exception {
-
-            // given
-            createUser(
-                    "rememberUser",
-                    "remember-user@test.com",
-                    "password"
-            );
-
-            CsrfData csrfData =
-                    getCsrfData();
-
-            /*
-             * 로그인 유지가 체크된 상태.
-             *
-             * remember-me=true를 전달한다.
-             */
-            MvcResult loginResult =
-                    mockMvc.perform(
-                                    post("/api/auth/login")
-                                            .cookie(
-                                                    csrfData.cookie()
-                                            )
-                                            .header(
-                                                    "X-XSRF-TOKEN",
-                                                    csrfData.token()
-                                            )
-                                            .contentType(
-                                                    MediaType.APPLICATION_FORM_URLENCODED
-                                            )
-                                            .param(
-                                                    "username",
-                                                    "rememberUser"
-                                            )
-                                            .param(
-                                                    "password",
-                                                    "password"
-                                            )
-                                            .param(
-                                                    "remember-me",
-                                                    "true"
-                                            )
-                            )
-                            .andExpect(
-                                    status().isOk()
-                            )
-                            .andReturn();
-
-            Cookie rememberMeCookie =
-                    loginResult.getResponse()
-                            .getCookie("remember-me");
-
-            assertThat(rememberMeCookie)
-                    .isNotNull();
-
-            assertThat(rememberMeCookie.getValue())
+            // then
+            assertThat(firstLogin.accessToken())
                     .isNotBlank();
 
-            MockHttpSession originalSession =
-                    (MockHttpSession) loginResult
-                            .getRequest()
-                            .getSession(false);
+            assertThat(secondLogin.accessToken())
+                    .isNotBlank();
 
-            assertThat(originalSession)
-                    .isNotNull();
+            assertThat(firstLogin.refreshToken())
+                    .isNotBlank();
 
-            /*
-             * 아래 요청에서는 originalSession을 전달하지 않는다.
-             *
-             * 즉 클라이언트에서 JSESSIONID 쿠키를 삭제한 상황을
-             * MockMvc에서 재현한다.
-             *
-             * Remember-Me 쿠키만 전달한다.
-             */
-            MvcResult rememberMeResult =
-                    mockMvc.perform(
-                                    get("/api/auth/me")
-                                            .cookie(
-                                                    rememberMeCookie
-                                            )
-                            )
-                            .andExpect(
-                                    status().isOk()
-                            )
-                            .andExpect(
-                                    jsonPath("$.username")
-                                            .value(
-                                                    "rememberUser"
-                                            )
-                            )
-                            .andExpect(
-                                    jsonPath("$.email")
-                                            .value(
-                                                    "remember-user@test.com"
-                                            )
-                            )
-                            .andExpect(
-                                    jsonPath("$.role")
-                                            .value("USER")
-                            )
-                            .andReturn();
-
-            /*
-             * Remember-Me 인증 후 새로운 세션이 생성되었는지 확인한다.
-             */
-            MockHttpSession rememberMeSession =
-                    (MockHttpSession) rememberMeResult
-                            .getRequest()
-                            .getSession(false);
-
-            assertThat(rememberMeSession)
-                    .isNotNull();
-
-            assertThat(rememberMeSession.getId())
-                    .isNotEqualTo(
-                            originalSession.getId()
-                    );
-
-            /*
-             * 새로운 Remember-Me 세션이 활성 상태인지 확인한다.
-             */
-            SessionInformation rememberMeSessionInformation =
-                    sessionRegistry.getSessionInformation(
-                            rememberMeSession.getId()
-                    );
-
-            assertThat(rememberMeSessionInformation)
-                    .isNotNull();
-
-            assertThat(
-                    rememberMeSessionInformation.isExpired()
-            )
-                    .isFalse();
+            assertThat(secondLogin.refreshToken())
+                    .isNotBlank();
         }
     }
 
@@ -515,25 +310,31 @@ class AuthSecurityIntegrationTest {
     class CurrentUserTest {
 
         @Test
-        @DisplayName("로그인 세션으로 현재 사용자 정보를 조회하면 200과 사용자 정보를 반환한다")
-        void should_ReturnCurrentUser_when_AuthenticatedSessionExists()
+        @DisplayName("Access Token으로 현재 사용자 정보를 조회하면 200과 사용자 정보를 반환한다")
+        void should_ReturnCurrentUser_when_AccessTokenIsValid()
                 throws Exception {
 
+            // given
             createUser(
                     "currentUser",
                     "current-user@test.com",
                     "password"
             );
 
-            MockHttpSession session =
+            LoginData loginData =
                     login(
                             "currentUser",
                             "password"
                     );
 
+            // when & then
             mockMvc.perform(
                             get("/api/auth/me")
-                                    .session(session)
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + loginData.accessToken()
+                                    )
                     )
                     .andExpect(
                             status().isOk()
@@ -555,20 +356,35 @@ class AuthSecurityIntegrationTest {
                     .andExpect(
                             jsonPath("$.role")
                                     .value("USER")
-                    )
-                    .andExpect(
-                            jsonPath("$.online")
-                                    .value(true)
                     );
         }
 
         @Test
-        @DisplayName("인증되지 않은 상태에서 현재 사용자 조회 시 401을 반환한다")
-        void should_ReturnUnauthorized_when_CurrentUserIsNotAuthenticated()
+        @DisplayName("Access Token 없이 현재 사용자 조회 시 401을 반환한다")
+        void should_ReturnUnauthorized_when_AccessTokenIsMissing()
                 throws Exception {
 
+            // when & then
             mockMvc.perform(
                             get("/api/auth/me")
+                    )
+                    .andExpect(
+                            status().isUnauthorized()
+                    );
+        }
+
+        @Test
+        @DisplayName("잘못된 Access Token으로 현재 사용자 조회 시 401을 반환한다")
+        void should_ReturnUnauthorized_when_AccessTokenIsInvalid()
+                throws Exception {
+
+            // when & then
+            mockMvc.perform(
+                            get("/api/auth/me")
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER + "invalid.jwt.token"
+                                    )
                     )
                     .andExpect(
                             status().isUnauthorized()
@@ -581,81 +397,44 @@ class AuthSecurityIntegrationTest {
     class LogoutTest {
 
         @Test
-        @DisplayName("로그인 사용자가 로그아웃하면 204 No Content를 반환한다")
+        @DisplayName("JWT 인증 사용자가 로그아웃하면 204 No Content를 반환한다")
         void should_ReturnNoContent_when_LogoutSucceeds()
                 throws Exception {
 
+            // given
             createUser(
                     "logoutUser",
                     "logout-user@test.com",
                     "password"
             );
 
-            MockHttpSession session =
+            LoginData loginData =
                     login(
                             "logoutUser",
                             "password"
                     );
 
-            CsrfData logoutCsrfData =
+            CsrfData csrfData =
                     getCsrfData();
 
+            // when & then
             mockMvc.perform(
                             post("/api/auth/logout")
-                                    .session(session)
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + loginData.accessToken()
+                                    )
                                     .cookie(
-                                            logoutCsrfData.cookie()
+                                            csrfData.cookie()
                                     )
                                     .header(
                                             "X-XSRF-TOKEN",
-                                            logoutCsrfData.token()
+                                            csrfData.token()
                                     )
                     )
                     .andExpect(
                             status().isNoContent()
-                    );
-        }
-
-        @Test
-        @DisplayName("로그아웃 후 현재 사용자 조회 시 401 Unauthorized를 반환한다")
-        void should_ReturnUnauthorized_when_AccessingMeAfterLogout()
-                throws Exception {
-
-            createUser(
-                    "logoutMeUser",
-                    "logout-me-user@test.com",
-                    "password"
-            );
-
-            MockHttpSession session =
-                    login(
-                            "logoutMeUser",
-                            "password"
-                    );
-
-            CsrfData logoutCsrfData =
-                    getCsrfData();
-
-            mockMvc.perform(
-                            post("/api/auth/logout")
-                                    .session(session)
-                                    .cookie(
-                                            logoutCsrfData.cookie()
-                                    )
-                                    .header(
-                                            "X-XSRF-TOKEN",
-                                            logoutCsrfData.token()
-                                    )
-                    )
-                    .andExpect(
-                            status().isNoContent()
-                    );
-
-            mockMvc.perform(
-                            get("/api/auth/me")
-                    )
-                    .andExpect(
-                            status().isUnauthorized()
                     );
         }
     }
@@ -669,6 +448,7 @@ class AuthSecurityIntegrationTest {
         void should_AssignUserRole_when_UserIsCreated()
                 throws Exception {
 
+            // given
             UserCreateRequest request =
                     new UserCreateRequest(
                             "roleUser",
@@ -680,6 +460,7 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
+            // when & then
             mockMvc.perform(
                             post("/api/users")
                                     .cookie(
@@ -716,6 +497,7 @@ class AuthSecurityIntegrationTest {
         void should_UpdateRoleToChannelManager_when_AdminRequestsRoleUpdate()
                 throws Exception {
 
+            // given
             String userId =
                     createUser(
                             "channelManagerUser",
@@ -729,7 +511,7 @@ class AuthSecurityIntegrationTest {
                     "password"
             );
 
-            MockHttpSession adminSession =
+            LoginData adminLogin =
                     login(
                             "roleAdmin1",
                             "password"
@@ -745,9 +527,14 @@ class AuthSecurityIntegrationTest {
                     }
                     """.formatted(userId);
 
+            // when & then
             mockMvc.perform(
                             put("/api/auth/role")
-                                    .session(adminSession)
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + adminLogin.accessToken()
+                                    )
                                     .cookie(
                                             csrfData.cookie()
                                     )
@@ -786,6 +573,7 @@ class AuthSecurityIntegrationTest {
         void should_UpdateRoleToAdmin_when_AdminRequestsRoleUpdate()
                 throws Exception {
 
+            // given
             String userId =
                     createUser(
                             "adminRoleUser",
@@ -799,7 +587,7 @@ class AuthSecurityIntegrationTest {
                     "password"
             );
 
-            MockHttpSession adminSession =
+            LoginData adminLogin =
                     login(
                             "roleAdmin2",
                             "password"
@@ -815,9 +603,14 @@ class AuthSecurityIntegrationTest {
                     }
                     """.formatted(userId);
 
+            // when & then
             mockMvc.perform(
                             put("/api/auth/role")
-                                    .session(adminSession)
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + adminLogin.accessToken()
+                                    )
                                     .cookie(
                                             csrfData.cookie()
                                     )
@@ -848,10 +641,23 @@ class AuthSecurityIntegrationTest {
         void should_ReturnForbidden_when_RoleUpdateHasNoCsrfToken()
                 throws Exception {
 
+            // given
             String userId =
                     createUser(
                             "csrfRoleUser",
                             "csrf-role-user@test.com",
+                            "password"
+                    );
+
+            createAdmin(
+                    "csrfRoleAdmin",
+                    "csrf-role-admin@test.com",
+                    "password"
+            );
+
+            LoginData adminLogin =
+                    login(
+                            "csrfRoleAdmin",
                             "password"
                     );
 
@@ -862,8 +668,14 @@ class AuthSecurityIntegrationTest {
                     }
                     """.formatted(userId);
 
+            // when & then
             mockMvc.perform(
                             put("/api/auth/role")
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + adminLogin.accessToken()
+                                    )
                                     .contentType(
                                             MediaType.APPLICATION_JSON
                                     )
@@ -875,43 +687,33 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("로그인 중인 사용자의 권한이 변경되면 기존 세션이 만료된다")
-        void should_ExpireExistingSession_when_UserRoleIsUpdated()
+        @DisplayName("기존 Access Token으로 요청해도 변경된 최신 Role이 적용된다")
+        void should_UseLatestRole_when_UserRoleIsUpdated()
                 throws Exception {
 
+            // given
             String targetUserId =
                     createUser(
-                            "sessionRoleUser",
-                            "session-role-user@test.com",
+                            "jwtRoleUser",
+                            "jwt-role-user@test.com",
                             "password"
                     );
 
-            MockHttpSession targetUserSession =
+            LoginData targetLogin =
                     login(
-                            "sessionRoleUser",
+                            "jwtRoleUser",
                             "password"
                     );
-
-            SessionInformation beforeUpdate =
-                    sessionRegistry.getSessionInformation(
-                            targetUserSession.getId()
-                    );
-
-            assertThat(beforeUpdate)
-                    .isNotNull();
-
-            assertThat(beforeUpdate.isExpired())
-                    .isFalse();
 
             createAdmin(
-                    "sessionRoleAdmin",
-                    "session-role-admin@test.com",
+                    "jwtRoleAdmin",
+                    "jwt-role-admin@test.com",
                     "password"
             );
 
-            MockHttpSession adminSession =
+            LoginData adminLogin =
                     login(
-                            "sessionRoleAdmin",
+                            "jwtRoleAdmin",
                             "password"
                     );
 
@@ -927,7 +729,11 @@ class AuthSecurityIntegrationTest {
 
             mockMvc.perform(
                             put("/api/auth/role")
-                                    .session(adminSession)
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + adminLogin.accessToken()
+                                    )
                                     .cookie(
                                             csrfData.cookie()
                                     )
@@ -944,26 +750,26 @@ class AuthSecurityIntegrationTest {
                             status().isOk()
                     )
                     .andExpect(
-                            jsonPath("$.id")
-                                    .value(targetUserId)
+                            jsonPath("$.role")
+                                    .value("CHANNEL_MANAGER")
+                    );
+
+            // when & then
+            mockMvc.perform(
+                            get("/api/auth/me")
+                                    .header(
+                                            AUTHORIZATION,
+                                            BEARER
+                                                    + targetLogin.accessToken()
+                                    )
+                    )
+                    .andExpect(
+                            status().isOk()
                     )
                     .andExpect(
                             jsonPath("$.role")
-                                    .value(
-                                            "CHANNEL_MANAGER"
-                                    )
+                                    .value("CHANNEL_MANAGER")
                     );
-
-            SessionInformation afterUpdate =
-                    sessionRegistry.getSessionInformation(
-                            targetUserSession.getId()
-                    );
-
-            assertThat(afterUpdate)
-                    .isNotNull();
-
-            assertThat(afterUpdate.isExpired())
-                    .isTrue();
         }
     }
 
@@ -1033,7 +839,7 @@ class AuthSecurityIntegrationTest {
 
         User user =
                 userRepository.findById(
-                                java.util.UUID.fromString(
+                                UUID.fromString(
                                         userId
                                 )
                         )
@@ -1048,7 +854,7 @@ class AuthSecurityIntegrationTest {
         );
     }
 
-    private MockHttpSession login(
+    private LoginData login(
             String username,
             String password
     ) throws Exception {
@@ -1081,17 +887,36 @@ class AuthSecurityIntegrationTest {
                         .andExpect(
                                 status().isOk()
                         )
+                        .andExpect(
+                                jsonPath("$.accessToken")
+                                        .isNotEmpty()
+                        )
                         .andReturn();
 
-        MockHttpSession session =
-                (MockHttpSession) loginResult
-                        .getRequest()
-                        .getSession(false);
+        JsonNode body =
+                objectMapper.readTree(
+                        loginResult.getResponse()
+                                .getContentAsString()
+                );
 
-        assertThat(session)
+        String accessToken =
+                body.get("accessToken")
+                        .asText();
+
+        Cookie refreshTokenCookie =
+                loginResult.getResponse()
+                        .getCookie("REFRESH_TOKEN");
+
+        assertThat(refreshTokenCookie)
                 .isNotNull();
 
-        return session;
+        assertThat(refreshTokenCookie.getValue())
+                .isNotBlank();
+
+        return new LoginData(
+                accessToken,
+                refreshTokenCookie.getValue()
+        );
     }
 
     private CsrfData getCsrfData()
@@ -1121,6 +946,12 @@ class AuthSecurityIntegrationTest {
                 csrfCookie,
                 csrfCookie.getValue()
         );
+    }
+
+    private record LoginData(
+            String accessToken,
+            String refreshToken
+    ) {
     }
 
     private record CsrfData(
