@@ -36,8 +36,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("인증 및 Spring Security 통합 테스트")
 class AuthSecurityIntegrationTest {
 
-    private static final String AUTHORIZATION = "Authorization";
-    private static final String BEARER = "Bearer ";
+    private static final String AUTHORIZATION =
+            "Authorization";
+
+    private static final String BEARER =
+            "Bearer ";
+
+    private static final String REFRESH_TOKEN =
+            "REFRESH_TOKEN";
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,14 +59,17 @@ class AuthSecurityIntegrationTest {
     class CsrfTokenTest {
 
         @Test
-        @DisplayName("CSRF 토큰 요청 시 203과 XSRF-TOKEN 쿠키를 반환한다")
+        @DisplayName(
+                "CSRF 토큰 요청 시 203과 XSRF-TOKEN 쿠키를 반환한다"
+        )
         void should_ReturnCsrfTokenCookie_when_CsrfTokenIsRequested()
                 throws Exception {
 
-            // when
             MvcResult result =
                     mockMvc.perform(
-                                    get("/api/auth/csrf-token")
+                                    get(
+                                            "/api/auth/csrf-token"
+                                    )
                             )
                             .andExpect(
                                     status()
@@ -68,19 +77,23 @@ class AuthSecurityIntegrationTest {
                             )
                             .andReturn();
 
-            // then
             Cookie csrfCookie =
                     result.getResponse()
-                            .getCookie("XSRF-TOKEN");
+                            .getCookie(
+                                    "XSRF-TOKEN"
+                            );
 
-            assertThat(csrfCookie)
-                    .isNotNull();
+            assertThat(
+                    csrfCookie
+            ).isNotNull();
 
-            assertThat(csrfCookie.getValue())
-                    .isNotBlank();
+            assertThat(
+                    csrfCookie.getValue()
+            ).isNotBlank();
 
-            assertThat(csrfCookie.isHttpOnly())
-                    .isFalse();
+            assertThat(
+                    csrfCookie.isHttpOnly()
+            ).isFalse();
         }
     }
 
@@ -89,11 +102,12 @@ class AuthSecurityIntegrationTest {
     class LoginTest {
 
         @Test
-        @DisplayName("올바른 사용자 이름과 비밀번호로 로그인하면 200과 JWT 정보를 반환한다")
+        @DisplayName(
+                "올바른 사용자 이름과 비밀번호로 로그인하면 200과 JWT 정보를 반환한다"
+        )
         void should_ReturnJwtDto_when_CredentialsAreValid()
                 throws Exception {
 
-            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
@@ -103,10 +117,11 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            // when & then
             MvcResult result =
                     mockMvc.perform(
-                                    post("/api/auth/login")
+                                    post(
+                                            "/api/auth/login"
+                                    )
                                             .cookie(
                                                     csrfData.cookie()
                                             )
@@ -130,53 +145,75 @@ class AuthSecurityIntegrationTest {
                                     status().isOk()
                             )
                             .andExpect(
-                                    jsonPath("$.userDto.username")
-                                            .value("securityUser")
+                                    jsonPath(
+                                            "$.userDto.username"
+                                    )
+                                            .value(
+                                                    "securityUser"
+                                            )
                             )
                             .andExpect(
-                                    jsonPath("$.userDto.email")
+                                    jsonPath(
+                                            "$.userDto.email"
+                                    )
                                             .value(
                                                     "security-user@test.com"
                                             )
                             )
                             .andExpect(
-                                    jsonPath("$.userDto.id")
+                                    jsonPath(
+                                            "$.userDto.id"
+                                    )
                                             .isNotEmpty()
                             )
                             .andExpect(
-                                    jsonPath("$.userDto.role")
-                                            .value("USER")
+                                    jsonPath(
+                                            "$.userDto.role"
+                                    )
+                                            .value(
+                                                    "USER"
+                                            )
                             )
                             .andExpect(
-                                    jsonPath("$.accessToken")
+                                    jsonPath(
+                                            "$.accessToken"
+                                    )
                                             .isNotEmpty()
                             )
                             .andExpect(
                                     cookie()
-                                            .exists("REFRESH_TOKEN")
+                                            .exists(
+                                                    REFRESH_TOKEN
+                                            )
                             )
                             .andReturn();
 
             Cookie refreshTokenCookie =
                     result.getResponse()
-                            .getCookie("REFRESH_TOKEN");
+                            .getCookie(
+                                    REFRESH_TOKEN
+                            );
 
-            assertThat(refreshTokenCookie)
-                    .isNotNull();
+            assertThat(
+                    refreshTokenCookie
+            ).isNotNull();
 
-            assertThat(refreshTokenCookie.getValue())
-                    .isNotBlank();
+            assertThat(
+                    refreshTokenCookie.getValue()
+            ).isNotBlank();
 
-            assertThat(refreshTokenCookie.isHttpOnly())
-                    .isTrue();
+            assertThat(
+                    refreshTokenCookie.isHttpOnly()
+            ).isTrue();
         }
 
         @Test
-        @DisplayName("비밀번호가 틀리면 401과 ErrorResponse를 반환한다")
+        @DisplayName(
+                "비밀번호가 틀리면 401과 ErrorResponse를 반환한다"
+        )
         void should_ReturnUnauthorized_when_PasswordIsIncorrect()
                 throws Exception {
 
-            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
@@ -186,9 +223,10 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            // when & then
             mockMvc.perform(
-                            post("/api/auth/login")
+                            post(
+                                    "/api/auth/login"
+                            )
                                     .cookie(
                                             csrfData.cookie()
                                     )
@@ -212,21 +250,33 @@ class AuthSecurityIntegrationTest {
                             status().isUnauthorized()
                     )
                     .andExpect(
-                            jsonPath("$.status")
-                                    .value(401)
+                            jsonPath(
+                                    "$.status"
+                            )
+                                    .value(
+                                            401
+                                    )
                     )
                     .andExpect(
-                            jsonPath("$.code")
-                                    .value("AUTH-001")
+                            jsonPath(
+                                    "$.code"
+                            )
+                                    .value(
+                                            "AUTH-001"
+                                    )
                     )
                     .andExpect(
-                            jsonPath("$.message")
+                            jsonPath(
+                                    "$.message"
+                            )
                                     .value(
                                             "아이디 또는 비밀번호가 올바르지 않습니다."
                                     )
                     )
                     .andExpect(
-                            jsonPath("$.exceptionType")
+                            jsonPath(
+                                    "$.exceptionType"
+                            )
                                     .value(
                                             "BadCredentialsException"
                                     )
@@ -234,20 +284,22 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("CSRF 토큰 없이 로그인하면 403 Forbidden을 반환한다")
+        @DisplayName(
+                "CSRF 토큰 없이 로그인하면 403 Forbidden을 반환한다"
+        )
         void should_ReturnForbidden_when_CsrfTokenIsMissing()
                 throws Exception {
 
-            // given
             createUser(
                     "securityUser",
                     "security-user@test.com",
                     "password"
             );
 
-            // when & then
             mockMvc.perform(
-                            post("/api/auth/login")
+                            post(
+                                    "/api/auth/login"
+                            )
                                     .contentType(
                                             MediaType.APPLICATION_FORM_URLENCODED
                                     )
@@ -266,18 +318,18 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("동일한 계정으로 여러 번 로그인해도 세션을 생성하지 않고 각각 JWT를 발급한다")
+        @DisplayName(
+                "동일한 계정으로 여러 번 로그인해도 세션을 생성하지 않고 각각 JWT를 발급한다"
+        )
         void should_IssueJwtWithoutSession_when_SameUserLogsInAgain()
                 throws Exception {
 
-            // given
             createUser(
                     "concurrentUser",
                     "concurrent-user@test.com",
                     "password"
             );
 
-            // when
             LoginData firstLogin =
                     login(
                             "concurrentUser",
@@ -290,104 +342,422 @@ class AuthSecurityIntegrationTest {
                             "password"
                     );
 
-            // then
-            assertThat(firstLogin.accessToken())
-                    .isNotBlank();
+            assertThat(
+                    firstLogin.accessToken()
+            ).isNotBlank();
 
-            assertThat(secondLogin.accessToken())
-                    .isNotBlank();
+            assertThat(
+                    secondLogin.accessToken()
+            ).isNotBlank();
 
-            assertThat(firstLogin.refreshToken())
-                    .isNotBlank();
+            assertThat(
+                    firstLogin.refreshToken()
+            ).isNotBlank();
 
-            assertThat(secondLogin.refreshToken())
-                    .isNotBlank();
+            assertThat(
+                    secondLogin.refreshToken()
+            ).isNotBlank();
         }
     }
 
     @Nested
-    @DisplayName("현재 사용자 조회")
-    class CurrentUserTest {
+    @DisplayName("Refresh Token 재발급")
+    class RefreshTokenTest {
 
         @Test
-        @DisplayName("Access Token으로 현재 사용자 정보를 조회하면 200과 사용자 정보를 반환한다")
-        void should_ReturnCurrentUser_when_AccessTokenIsValid()
+        @DisplayName(
+                "유효한 Refresh Token으로 재발급하면 200과 새로운 JWT 정보를 반환한다"
+        )
+        void should_ReturnNewJwtDto_when_RefreshTokenIsValid()
                 throws Exception {
 
-            // given
             createUser(
-                    "currentUser",
-                    "current-user@test.com",
+                    "refreshUser",
+                    "refresh-user@test.com",
                     "password"
             );
 
             LoginData loginData =
                     login(
-                            "currentUser",
+                            "refreshUser",
                             "password"
                     );
 
-            // when & then
+            CsrfData csrfData =
+                    getCsrfData();
+
+            MvcResult result =
+                    mockMvc.perform(
+                                    post(
+                                            "/api/auth/refresh"
+                                    )
+                                            .cookie(
+                                                    csrfData.cookie(),
+                                                    new Cookie(
+                                                            REFRESH_TOKEN,
+                                                            loginData.refreshToken()
+                                                    )
+                                            )
+                                            .header(
+                                                    "X-XSRF-TOKEN",
+                                                    csrfData.token()
+                                            )
+                            )
+                            .andExpect(
+                                    status().isOk()
+                            )
+                            .andExpect(
+                                    jsonPath(
+                                            "$.userDto.username"
+                                    )
+                                            .value(
+                                                    "refreshUser"
+                                            )
+                            )
+                            .andExpect(
+                                    jsonPath(
+                                            "$.userDto.email"
+                                    )
+                                            .value(
+                                                    "refresh-user@test.com"
+                                            )
+                            )
+                            .andExpect(
+                                    jsonPath(
+                                            "$.userDto.role"
+                                    )
+                                            .value(
+                                                    "USER"
+                                            )
+                            )
+                            .andExpect(
+                                    jsonPath(
+                                            "$.accessToken"
+                                    )
+                                            .isNotEmpty()
+                            )
+                            .andExpect(
+                                    cookie()
+                                            .exists(
+                                                    REFRESH_TOKEN
+                                            )
+                            )
+                            .andReturn();
+
+            Cookie newRefreshTokenCookie =
+                    result.getResponse()
+                            .getCookie(
+                                    REFRESH_TOKEN
+                            );
+
+            assertThat(
+                    newRefreshTokenCookie
+            ).isNotNull();
+
+            assertThat(
+                    newRefreshTokenCookie.getValue()
+            ).isNotBlank();
+
+            assertThat(
+                    newRefreshTokenCookie.isHttpOnly()
+            ).isTrue();
+        }
+
+        @Test
+        @DisplayName(
+                "재발급 시 Refresh Token Rotation으로 새로운 Refresh Token을 발급한다"
+        )
+        void should_RotateRefreshToken_when_AccessTokenIsRefreshed()
+                throws Exception {
+
+            createUser(
+                    "rotationUser",
+                    "rotation-user@test.com",
+                    "password"
+            );
+
+            LoginData loginData =
+                    login(
+                            "rotationUser",
+                            "password"
+                    );
+
+            String oldRefreshToken =
+                    loginData.refreshToken();
+
+            CsrfData csrfData =
+                    getCsrfData();
+
+            MvcResult result =
+                    mockMvc.perform(
+                                    post(
+                                            "/api/auth/refresh"
+                                    )
+                                            .cookie(
+                                                    csrfData.cookie(),
+                                                    new Cookie(
+                                                            REFRESH_TOKEN,
+                                                            oldRefreshToken
+                                                    )
+                                            )
+                                            .header(
+                                                    "X-XSRF-TOKEN",
+                                                    csrfData.token()
+                                            )
+                            )
+                            .andExpect(
+                                    status().isOk()
+                            )
+                            .andReturn();
+
+            Cookie newRefreshTokenCookie =
+                    result.getResponse()
+                            .getCookie(
+                                    REFRESH_TOKEN
+                            );
+
+            assertThat(
+                    newRefreshTokenCookie
+            ).isNotNull();
+
+            assertThat(
+                    newRefreshTokenCookie.getValue()
+            ).isNotBlank();
+
+            assertThat(
+                    newRefreshTokenCookie.getValue()
+            ).isNotEqualTo(
+                    oldRefreshToken
+            );
+        }
+
+        @Test
+        @DisplayName(
+                "Refresh Token 쿠키가 없으면 401과 ErrorResponse를 반환한다"
+        )
+        void should_ReturnUnauthorized_when_RefreshTokenIsMissing()
+                throws Exception {
+
+            CsrfData csrfData =
+                    getCsrfData();
+
             mockMvc.perform(
-                            get("/api/auth/me")
+                            post(
+                                    "/api/auth/refresh"
+                            )
+                                    .cookie(
+                                            csrfData.cookie()
+                                    )
                                     .header(
-                                            AUTHORIZATION,
-                                            BEARER
-                                                    + loginData.accessToken()
+                                            "X-XSRF-TOKEN",
+                                            csrfData.token()
                                     )
                     )
                     .andExpect(
-                            status().isOk()
+                            status().isUnauthorized()
                     )
                     .andExpect(
-                            jsonPath("$.id")
-                                    .isNotEmpty()
-                    )
-                    .andExpect(
-                            jsonPath("$.username")
-                                    .value("currentUser")
-                    )
-                    .andExpect(
-                            jsonPath("$.email")
+                            jsonPath(
+                                    "$.status"
+                            )
                                     .value(
-                                            "current-user@test.com"
+                                            401
                                     )
                     )
                     .andExpect(
-                            jsonPath("$.role")
-                                    .value("USER")
-                    );
-        }
-
-        @Test
-        @DisplayName("Access Token 없이 현재 사용자 조회 시 401을 반환한다")
-        void should_ReturnUnauthorized_when_AccessTokenIsMissing()
-                throws Exception {
-
-            // when & then
-            mockMvc.perform(
-                            get("/api/auth/me")
+                            jsonPath(
+                                    "$.code"
+                            )
+                                    .value(
+                                            "AUTH-001"
+                                    )
                     )
                     .andExpect(
-                            status().isUnauthorized()
+                            jsonPath(
+                                    "$.message"
+                            )
+                                    .value(
+                                            "Refresh Token이 존재하지 않습니다."
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.exceptionType"
+                            )
+                                    .value(
+                                            "BadCredentialsException"
+                                    )
                     );
         }
 
         @Test
-        @DisplayName("잘못된 Access Token으로 현재 사용자 조회 시 401을 반환한다")
-        void should_ReturnUnauthorized_when_AccessTokenIsInvalid()
+        @DisplayName(
+                "잘못된 Refresh Token이면 401과 ErrorResponse를 반환한다"
+        )
+        void should_ReturnUnauthorized_when_RefreshTokenIsInvalid()
                 throws Exception {
 
-            // when & then
+            CsrfData csrfData =
+                    getCsrfData();
+
+            Cookie invalidRefreshToken =
+                    new Cookie(
+                            REFRESH_TOKEN,
+                            "invalid.refresh.token"
+                    );
+
             mockMvc.perform(
-                            get("/api/auth/me")
+                            post(
+                                    "/api/auth/refresh"
+                            )
+                                    .cookie(
+                                            csrfData.cookie(),
+                                            invalidRefreshToken
+                                    )
                                     .header(
-                                            AUTHORIZATION,
-                                            BEARER + "invalid.jwt.token"
+                                            "X-XSRF-TOKEN",
+                                            csrfData.token()
                                     )
                     )
                     .andExpect(
                             status().isUnauthorized()
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.status"
+                            )
+                                    .value(
+                                            401
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.code"
+                            )
+                                    .value(
+                                            "AUTH-001"
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.message"
+                            )
+                                    .value(
+                                            "유효하지 않은 Refresh Token입니다."
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.exceptionType"
+                            )
+                                    .value(
+                                            "BadCredentialsException"
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName(
+                "Access Token을 Refresh Token 쿠키로 전달하면 401을 반환한다"
+        )
+        void should_ReturnUnauthorized_when_AccessTokenIsUsedAsRefreshToken()
+                throws Exception {
+
+            createUser(
+                    "accessAsRefreshUser",
+                    "access-as-refresh@test.com",
+                    "password"
+            );
+
+            LoginData loginData =
+                    login(
+                            "accessAsRefreshUser",
+                            "password"
+                    );
+
+            CsrfData csrfData =
+                    getCsrfData();
+
+            Cookie wrongRefreshToken =
+                    new Cookie(
+                            REFRESH_TOKEN,
+                            loginData.accessToken()
+                    );
+
+            mockMvc.perform(
+                            post(
+                                    "/api/auth/refresh"
+                            )
+                                    .cookie(
+                                            csrfData.cookie(),
+                                            wrongRefreshToken
+                                    )
+                                    .header(
+                                            "X-XSRF-TOKEN",
+                                            csrfData.token()
+                                    )
+                    )
+                    .andExpect(
+                            status().isUnauthorized()
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.status"
+                            )
+                                    .value(
+                                            401
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.code"
+                            )
+                                    .value(
+                                            "AUTH-001"
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.message"
+                            )
+                                    .value(
+                                            "유효하지 않은 Refresh Token입니다."
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName(
+                "CSRF 토큰 없이 재발급 요청하면 403 Forbidden을 반환한다"
+        )
+        void should_ReturnForbidden_when_RefreshRequestHasNoCsrfToken()
+                throws Exception {
+
+            createUser(
+                    "refreshCsrfUser",
+                    "refresh-csrf@test.com",
+                    "password"
+            );
+
+            LoginData loginData =
+                    login(
+                            "refreshCsrfUser",
+                            "password"
+                    );
+
+            mockMvc.perform(
+                            post(
+                                    "/api/auth/refresh"
+                            )
+                                    .cookie(
+                                            new Cookie(
+                                                    REFRESH_TOKEN,
+                                                    loginData.refreshToken()
+                                            )
+                                    )
+                    )
+                    .andExpect(
+                            status().isForbidden()
                     );
         }
     }
@@ -397,11 +767,12 @@ class AuthSecurityIntegrationTest {
     class LogoutTest {
 
         @Test
-        @DisplayName("JWT 인증 사용자가 로그아웃하면 204 No Content를 반환한다")
-        void should_ReturnNoContent_when_LogoutSucceeds()
+        @DisplayName(
+                "JWT 인증 사용자가 로그아웃하면 Refresh Token 쿠키를 삭제하고 204를 반환한다"
+        )
+        void should_DeleteRefreshTokenCookie_when_LogoutSucceeds()
                 throws Exception {
 
-            // given
             createUser(
                     "logoutUser",
                     "logout-user@test.com",
@@ -417,25 +788,61 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            // when & then
-            mockMvc.perform(
-                            post("/api/auth/logout")
-                                    .header(
-                                            AUTHORIZATION,
-                                            BEARER
-                                                    + loginData.accessToken()
+            MvcResult result =
+                    mockMvc.perform(
+                                    post(
+                                            "/api/auth/logout"
                                     )
-                                    .cookie(
-                                            csrfData.cookie()
-                                    )
-                                    .header(
-                                            "X-XSRF-TOKEN",
-                                            csrfData.token()
-                                    )
-                    )
-                    .andExpect(
-                            status().isNoContent()
-                    );
+                                            .header(
+                                                    AUTHORIZATION,
+                                                    BEARER
+                                                            + loginData.accessToken()
+                                            )
+                                            .cookie(
+                                                    csrfData.cookie(),
+                                                    new Cookie(
+                                                            "REFRESH_TOKEN",
+                                                            loginData.refreshToken()
+                                                    )
+                                            )
+                                            .header(
+                                                    "X-XSRF-TOKEN",
+                                                    csrfData.token()
+                                            )
+                            )
+                            .andExpect(
+                                    status().isNoContent()
+                            )
+                            .andExpect(
+                                    cookie()
+                                            .maxAge(
+                                                    "REFRESH_TOKEN",
+                                                    0
+                                            )
+                            )
+                            .andReturn();
+
+            Cookie deletedRefreshTokenCookie =
+                    result.getResponse()
+                            .getCookie(
+                                    "REFRESH_TOKEN"
+                            );
+
+            assertThat(
+                    deletedRefreshTokenCookie
+            ).isNotNull();
+
+            assertThat(
+                    deletedRefreshTokenCookie.getMaxAge()
+            ).isZero();
+
+            assertThat(
+                    deletedRefreshTokenCookie.getPath()
+            ).isEqualTo("/");
+
+            assertThat(
+                    deletedRefreshTokenCookie.isHttpOnly()
+            ).isTrue();
         }
     }
 
@@ -444,11 +851,12 @@ class AuthSecurityIntegrationTest {
     class RoleTest {
 
         @Test
-        @DisplayName("회원가입 시 기본 권한은 USER이다")
+        @DisplayName(
+                "회원가입 시 기본 권한은 USER이다"
+        )
         void should_AssignUserRole_when_UserIsCreated()
                 throws Exception {
 
-            // given
             UserCreateRequest request =
                     new UserCreateRequest(
                             "roleUser",
@@ -460,9 +868,10 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            // when & then
             mockMvc.perform(
-                            post("/api/users")
+                            post(
+                                    "/api/users"
+                            )
                                     .cookie(
                                             csrfData.cookie()
                                     )
@@ -483,21 +892,30 @@ class AuthSecurityIntegrationTest {
                             status().isOk()
                     )
                     .andExpect(
-                            jsonPath("$.username")
-                                    .value("roleUser")
+                            jsonPath(
+                                    "$.username"
+                            )
+                                    .value(
+                                            "roleUser"
+                                    )
                     )
                     .andExpect(
-                            jsonPath("$.role")
-                                    .value("USER")
+                            jsonPath(
+                                    "$.role"
+                            )
+                                    .value(
+                                            "USER"
+                                    )
                     );
         }
 
         @Test
-        @DisplayName("ADMIN이 사용자 권한을 CHANNEL_MANAGER로 변경하면 200과 변경된 사용자 정보를 반환한다")
+        @DisplayName(
+                "ADMIN이 사용자 권한을 CHANNEL_MANAGER로 변경하면 200과 변경된 사용자 정보를 반환한다"
+        )
         void should_UpdateRoleToChannelManager_when_AdminRequestsRoleUpdate()
                 throws Exception {
 
-            // given
             String userId =
                     createUser(
                             "channelManagerUser",
@@ -520,16 +938,20 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            String requestBody = """
+            String requestBody =
+                    """
                     {
                         "userId": "%s",
                         "newRole": "CHANNEL_MANAGER"
                     }
-                    """.formatted(userId);
+                    """.formatted(
+                            userId
+                    );
 
-            // when & then
             mockMvc.perform(
-                            put("/api/auth/role")
+                            put(
+                                    "/api/auth/role"
+                            )
                                     .header(
                                             AUTHORIZATION,
                                             BEARER
@@ -545,23 +967,33 @@ class AuthSecurityIntegrationTest {
                                     .contentType(
                                             MediaType.APPLICATION_JSON
                                     )
-                                    .content(requestBody)
+                                    .content(
+                                            requestBody
+                                    )
                     )
                     .andExpect(
                             status().isOk()
                     )
                     .andExpect(
-                            jsonPath("$.id")
-                                    .value(userId)
+                            jsonPath(
+                                    "$.id"
+                            )
+                                    .value(
+                                            userId
+                                    )
                     )
                     .andExpect(
-                            jsonPath("$.username")
+                            jsonPath(
+                                    "$.username"
+                            )
                                     .value(
                                             "channelManagerUser"
                                     )
                     )
                     .andExpect(
-                            jsonPath("$.role")
+                            jsonPath(
+                                    "$.role"
+                            )
                                     .value(
                                             "CHANNEL_MANAGER"
                                     )
@@ -569,11 +1001,12 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("ADMIN이 사용자 권한을 ADMIN으로 변경하면 200과 ADMIN 권한을 반환한다")
+        @DisplayName(
+                "ADMIN이 사용자 권한을 ADMIN으로 변경하면 200과 ADMIN 권한을 반환한다"
+        )
         void should_UpdateRoleToAdmin_when_AdminRequestsRoleUpdate()
                 throws Exception {
 
-            // given
             String userId =
                     createUser(
                             "adminRoleUser",
@@ -596,16 +1029,20 @@ class AuthSecurityIntegrationTest {
             CsrfData csrfData =
                     getCsrfData();
 
-            String requestBody = """
+            String requestBody =
+                    """
                     {
                         "userId": "%s",
                         "newRole": "ADMIN"
                     }
-                    """.formatted(userId);
+                    """.formatted(
+                            userId
+                    );
 
-            // when & then
             mockMvc.perform(
-                            put("/api/auth/role")
+                            put(
+                                    "/api/auth/role"
+                            )
                                     .header(
                                             AUTHORIZATION,
                                             BEARER
@@ -621,27 +1058,38 @@ class AuthSecurityIntegrationTest {
                                     .contentType(
                                             MediaType.APPLICATION_JSON
                                     )
-                                    .content(requestBody)
+                                    .content(
+                                            requestBody
+                                    )
                     )
                     .andExpect(
                             status().isOk()
                     )
                     .andExpect(
-                            jsonPath("$.id")
-                                    .value(userId)
+                            jsonPath(
+                                    "$.id"
+                            )
+                                    .value(
+                                            userId
+                                    )
                     )
                     .andExpect(
-                            jsonPath("$.role")
-                                    .value("ADMIN")
+                            jsonPath(
+                                    "$.role"
+                            )
+                                    .value(
+                                            "ADMIN"
+                                    )
                     );
         }
 
         @Test
-        @DisplayName("CSRF 토큰 없이 사용자 권한을 수정하면 403 Forbidden을 반환한다")
+        @DisplayName(
+                "CSRF 토큰 없이 사용자 권한을 수정하면 403 Forbidden을 반환한다"
+        )
         void should_ReturnForbidden_when_RoleUpdateHasNoCsrfToken()
                 throws Exception {
 
-            // given
             String userId =
                     createUser(
                             "csrfRoleUser",
@@ -661,16 +1109,20 @@ class AuthSecurityIntegrationTest {
                             "password"
                     );
 
-            String requestBody = """
+            String requestBody =
+                    """
                     {
                         "userId": "%s",
                         "newRole": "CHANNEL_MANAGER"
                     }
-                    """.formatted(userId);
+                    """.formatted(
+                            userId
+                    );
 
-            // when & then
             mockMvc.perform(
-                            put("/api/auth/role")
+                            put(
+                                    "/api/auth/role"
+                            )
                                     .header(
                                             AUTHORIZATION,
                                             BEARER
@@ -679,7 +1131,9 @@ class AuthSecurityIntegrationTest {
                                     .contentType(
                                             MediaType.APPLICATION_JSON
                                     )
-                                    .content(requestBody)
+                                    .content(
+                                            requestBody
+                                    )
                     )
                     .andExpect(
                             status().isForbidden()
@@ -687,11 +1141,12 @@ class AuthSecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("기존 Access Token으로 요청해도 변경된 최신 Role이 적용된다")
+        @DisplayName(
+                "기존 Access Token으로 요청해도 변경된 최신 Role이 적용된다"
+        )
         void should_UseLatestRole_when_UserRoleIsUpdated()
                 throws Exception {
 
-            // given
             String targetUserId =
                     createUser(
                             "jwtRoleUser",
@@ -717,58 +1172,98 @@ class AuthSecurityIntegrationTest {
                             "password"
                     );
 
-            CsrfData csrfData =
+            CsrfData roleCsrfData =
                     getCsrfData();
 
-            String requestBody = """
+            String roleRequestBody =
+                    """
                     {
                         "userId": "%s",
                         "newRole": "CHANNEL_MANAGER"
                     }
-                    """.formatted(targetUserId);
+                    """.formatted(
+                            targetUserId
+                    );
 
             mockMvc.perform(
-                            put("/api/auth/role")
+                            put(
+                                    "/api/auth/role"
+                            )
                                     .header(
                                             AUTHORIZATION,
                                             BEARER
                                                     + adminLogin.accessToken()
                                     )
                                     .cookie(
-                                            csrfData.cookie()
+                                            roleCsrfData.cookie()
                                     )
                                     .header(
                                             "X-XSRF-TOKEN",
-                                            csrfData.token()
+                                            roleCsrfData.token()
                                     )
                                     .contentType(
                                             MediaType.APPLICATION_JSON
                                     )
-                                    .content(requestBody)
+                                    .content(
+                                            roleRequestBody
+                                    )
                     )
                     .andExpect(
                             status().isOk()
                     )
                     .andExpect(
-                            jsonPath("$.role")
-                                    .value("CHANNEL_MANAGER")
+                            jsonPath(
+                                    "$.role"
+                            )
+                                    .value(
+                                            "CHANNEL_MANAGER"
+                                    )
                     );
 
-            // when & then
+            CsrfData channelCsrfData =
+                    getCsrfData();
+
+            String channelRequestBody =
+                    """
+                    {
+                        "name": "jwt-role-channel",
+                        "description": "role updated channel"
+                    }
+                    """;
+
             mockMvc.perform(
-                            get("/api/auth/me")
+                            post(
+                                    "/api/channels/public"
+                            )
                                     .header(
                                             AUTHORIZATION,
                                             BEARER
                                                     + targetLogin.accessToken()
                                     )
+                                    .cookie(
+                                            channelCsrfData.cookie()
+                                    )
+                                    .header(
+                                            "X-XSRF-TOKEN",
+                                            channelCsrfData.token()
+                                    )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content(
+                                            channelRequestBody
+                                    )
                     )
                     .andExpect(
-                            status().isOk()
+                            status().isCreated()
                     )
                     .andExpect(
-                            jsonPath("$.role")
-                                    .value("CHANNEL_MANAGER")
+                            jsonPath(
+                                    "$.name"
+                            )
+                                    .value(
+                                            "jwt-role-channel"
+                                    )
                     );
         }
     }
@@ -792,7 +1287,9 @@ class AuthSecurityIntegrationTest {
 
         MvcResult result =
                 mockMvc.perform(
-                                post("/api/users")
+                                post(
+                                        "/api/users"
+                                )
                                         .cookie(
                                                 csrfData.cookie()
                                         )
@@ -804,9 +1301,10 @@ class AuthSecurityIntegrationTest {
                                                 MediaType.APPLICATION_JSON
                                         )
                                         .content(
-                                                objectMapper.writeValueAsString(
-                                                        request
-                                                )
+                                                objectMapper
+                                                        .writeValueAsString(
+                                                                request
+                                                        )
                                         )
                         )
                         .andExpect(
@@ -820,7 +1318,9 @@ class AuthSecurityIntegrationTest {
                                 .getContentAsString()
                 );
 
-        return body.get("id")
+        return body.get(
+                        "id"
+                )
                 .asText();
     }
 
@@ -838,7 +1338,8 @@ class AuthSecurityIntegrationTest {
                 );
 
         User user =
-                userRepository.findById(
+                userRepository
+                        .findById(
                                 UUID.fromString(
                                         userId
                                 )
@@ -864,7 +1365,9 @@ class AuthSecurityIntegrationTest {
 
         MvcResult loginResult =
                 mockMvc.perform(
-                                post("/api/auth/login")
+                                post(
+                                        "/api/auth/login"
+                                )
                                         .cookie(
                                                 csrfData.cookie()
                                         )
@@ -888,7 +1391,9 @@ class AuthSecurityIntegrationTest {
                                 status().isOk()
                         )
                         .andExpect(
-                                jsonPath("$.accessToken")
+                                jsonPath(
+                                        "$.accessToken"
+                                )
                                         .isNotEmpty()
                         )
                         .andReturn();
@@ -900,18 +1405,24 @@ class AuthSecurityIntegrationTest {
                 );
 
         String accessToken =
-                body.get("accessToken")
+                body.get(
+                                "accessToken"
+                        )
                         .asText();
 
         Cookie refreshTokenCookie =
                 loginResult.getResponse()
-                        .getCookie("REFRESH_TOKEN");
+                        .getCookie(
+                                REFRESH_TOKEN
+                        );
 
-        assertThat(refreshTokenCookie)
-                .isNotNull();
+        assertThat(
+                refreshTokenCookie
+        ).isNotNull();
 
-        assertThat(refreshTokenCookie.getValue())
-                .isNotBlank();
+        assertThat(
+                refreshTokenCookie.getValue()
+        ).isNotBlank();
 
         return new LoginData(
                 accessToken,
@@ -924,7 +1435,9 @@ class AuthSecurityIntegrationTest {
 
         MvcResult result =
                 mockMvc.perform(
-                                get("/api/auth/csrf-token")
+                                get(
+                                        "/api/auth/csrf-token"
+                                )
                         )
                         .andExpect(
                                 status()
@@ -934,13 +1447,17 @@ class AuthSecurityIntegrationTest {
 
         Cookie csrfCookie =
                 result.getResponse()
-                        .getCookie("XSRF-TOKEN");
+                        .getCookie(
+                                "XSRF-TOKEN"
+                        );
 
-        assertThat(csrfCookie)
-                .isNotNull();
+        assertThat(
+                csrfCookie
+        ).isNotNull();
 
-        assertThat(csrfCookie.getValue())
-                .isNotBlank();
+        assertThat(
+                csrfCookie.getValue()
+        ).isNotBlank();
 
         return new CsrfData(
                 csrfCookie,

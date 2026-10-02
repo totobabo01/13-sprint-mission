@@ -2,9 +2,9 @@ package com.sprint.mission.discodeit.config;
 
 import com.sprint.mission.discodeit.security.CustomAccessDeniedHandler;
 import com.sprint.mission.discodeit.security.CustomAuthenticationEntryPoint;
-import com.sprint.mission.discodeit.security.DiscodeitUserDetailsService;
 import com.sprint.mission.discodeit.security.JwtAuthenticationFilter;
 import com.sprint.mission.discodeit.security.JwtLoginSuccessHandler;
+import com.sprint.mission.discodeit.security.JwtLogoutHandler;
 import com.sprint.mission.discodeit.security.LoginFailureHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +34,10 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 public class SecurityConfig {
 
     private final JwtLoginSuccessHandler jwtLoginSuccessHandler;
+
     private final LoginFailureHandler loginFailureHandler;
+
+    private final JwtLogoutHandler jwtLogoutHandler;
 
     private final CustomAuthenticationEntryPoint
             customAuthenticationEntryPoint;
@@ -45,7 +48,6 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(
             HttpSecurity http,
-            DiscodeitUserDetailsService discodeitUserDetailsService,
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) throws Exception {
 
@@ -63,7 +65,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // 정적 리소스
-                        // 로그인 여부와 관계없이 프론트 화면 및 리소스 접근 허용
                         .requestMatchers(
                                 "/",
                                 "/*.html",
@@ -73,7 +74,7 @@ public class SecurityConfig {
                                 "/favicon.ico"
                         ).permitAll()
 
-                        // CSRF 토큰 발급
+                        // CSRF 토큰
                         .requestMatchers(
                                 "/api/auth/csrf-token"
                         ).permitAll()
@@ -81,6 +82,12 @@ public class SecurityConfig {
                         // 로그인
                         .requestMatchers(
                                 "/api/auth/login"
+                        ).permitAll()
+
+                        // Refresh Token을 이용한 Access Token 재발급
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/refresh"
                         ).permitAll()
 
                         // 로그아웃
@@ -106,8 +113,9 @@ public class SecurityConfig {
                                 "/actuator/**"
                         ).permitAll()
 
-                        // 그 외 모든 요청 인증 필요
-                        .anyRequest().authenticated()
+                        // 그 외 요청은 인증 필요
+                        .anyRequest()
+                        .authenticated()
                 )
 
                 .exceptionHandling(exception -> exception
@@ -120,10 +128,10 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * JWT 기반 인증을 사용하므로
-                 * 서버에서 인증 세션을 생성하거나 유지하지 않는다.
+                 * JWT 기반 Stateless 인증
                  *
-                 * 요청마다 Access Token을 통해 인증한다.
+                 * 서버에서 인증 세션을 생성하거나 유지하지 않고
+                 * 매 요청마다 Access Token을 통해 인증한다.
                  */
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(
@@ -132,37 +140,11 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * 기존 Sprint 9의 Remember-Me 설정.
+                 * Remember-Me는 제거되었다.
                  *
-                 * 현재 요구사항에서 제거하라는 내용이 없으므로
-                 * 일단 유지한다.
-                 *
-                 * 이후 Refresh Token 요구사항에 따라
-                 * 제거 여부를 결정할 수 있다.
-                 */
-                .rememberMe(remember -> remember
-                        .key(
-                                "discodeit-remember-me-key"
-                        )
-                        .rememberMeParameter(
-                                "remember-me"
-                        )
-                        .rememberMeCookieName(
-                                "remember-me"
-                        )
-                        .tokenValiditySeconds(
-                                60 * 60 * 24 * 14
-                        )
-                        .userDetailsService(
-                                discodeitUserDetailsService
-                        )
-                )
-
-                /*
-                 * 기존 formLogin 인증 방식은 유지한다.
-                 *
-                 * 로그인 성공 시 JwtLoginSuccessHandler에서
-                 * Access Token과 Refresh Token을 발급한다.
+                 * REFRESH_TOKEN 쿠키와
+                 * /api/auth/refresh API가
+                 * 기존 Remember-Me 역할을 대신한다.
                  */
                 .formLogin(login -> login
                         .loginProcessingUrl(
@@ -176,9 +158,20 @@ public class SecurityConfig {
                         )
                 )
 
+                /*
+                 * 로그아웃
+                 *
+                 * JwtLogoutHandler가 REFRESH_TOKEN 쿠키를
+                 * Max-Age=0으로 만료시켜 브라우저에서 삭제한다.
+                 *
+                 * 로그아웃 처리 완료 후에는 204 No Content를 반환한다.
+                 */
                 .logout(logout -> logout
                         .logoutUrl(
                                 "/api/auth/logout"
+                        )
+                        .addLogoutHandler(
+                                jwtLogoutHandler
                         )
                         .logoutSuccessHandler(
                                 new HttpStatusReturningLogoutSuccessHandler(
@@ -189,10 +182,9 @@ public class SecurityConfig {
 
                 /*
                  * Authorization: Bearer {AccessToken}
-                 * 요청을 처리하는 JWT 인증 필터.
                  *
-                 * UsernamePasswordAuthenticationFilter보다 먼저 실행해서
-                 * SecurityContext에 인증 정보를 등록한다.
+                 * UsernamePasswordAuthenticationFilter보다 먼저 실행하여
+                 * JWT 기반 인증 정보를 SecurityContext에 등록한다.
                  */
                 .addFilterBefore(
                         jwtAuthenticationFilter,
@@ -202,19 +194,12 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /*
-     * 기존 코드에서 SessionRegistry를 사용하는 부분이
-     * 남아 있을 수 있으므로 우선 Bean은 유지한다.
-     */
     @Bean
     public SessionRegistry sessionRegistry() {
 
         return new SessionRegistryImpl();
     }
 
-    /*
-     * 기존 세션 관련 코드와의 호환성을 위해 우선 유지한다.
-     */
     @Bean
     public HttpSessionEventPublisher
     httpSessionEventPublisher() {
